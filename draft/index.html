@@ -523,7 +523,7 @@
 
     /* ---- LAYER 3: free-form 3D particle DNA (right side, clear of text) ---- */
     const RIGHT_BIAS = 0.70;   // horizontal anchor as fraction of width (keeps DNA off the text)
-    const FOCAL = 760;         // perspective focal length (px)
+    const FOCAL = 600;         // perspective focal length (px) — shorter = stronger 3D
 
     // deterministic per-particle noise (stable jitter)
     function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
@@ -602,28 +602,52 @@
       ctx.globalCompositeOperation = 'lighter';
       for (const s of segs) {
         const sc = (s.p.scale + s.q.scale) / 2;
+        // cubic depth curve => near segments thick & blazing, far ones hairline-thin
+        const dp = Math.min(Math.pow(sc, 3), 4.2);
         if (s.kind === 'bone') {
-          // soft outer glow
-          ctx.strokeStyle = rgba(s.c, 0.05 * sc); ctx.lineWidth = 8.5 * sc;
+          // soft outer glow, swells with proximity
+          ctx.strokeStyle = rgba(s.c, 0.028 + 0.05 * dp); ctx.lineWidth = 5 + 8 * dp;
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          // main line
-          ctx.strokeStyle = rgba(s.c, Math.min(0.14 + 0.4 * sc, 0.75));
-          ctx.lineWidth = 0.9 + 1.7 * sc;
+          // main line: hairline far away -> bold rope up close
+          ctx.strokeStyle = rgba(s.c, Math.min(0.10 + 0.26 * dp, 0.9));
+          ctx.lineWidth = 0.5 + 2.3 * dp;
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
+          // bright core on the nearest passes
+          if (dp > 1.6) {
+            ctx.strokeStyle = rgba(GOLD_HI, (dp - 1.6) * 0.16);
+            ctx.lineWidth = 0.5 + (dp - 1.6) * 1.1;
+            ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
+          }
         } else {
           // short connector between the two backbones
           const g = ctx.createLinearGradient(s.p.x, s.p.y, s.q.x, s.q.y);
-          g.addColorStop(0, rgba(GOLD_A, 0.10 + 0.22 * sc));
-          g.addColorStop(0.5, rgba(GOLD_B, 0.05 + 0.10 * sc));
-          g.addColorStop(1, rgba(GOLD_B, 0.10 + 0.22 * sc));
-          ctx.strokeStyle = g; ctx.lineWidth = 0.7 + 0.9 * sc;
+          g.addColorStop(0, rgba(GOLD_A, 0.08 + 0.14 * dp));
+          g.addColorStop(0.5, rgba(GOLD_B, 0.04 + 0.07 * dp));
+          g.addColorStop(1, rgba(GOLD_B, 0.08 + 0.14 * dp));
+          ctx.strokeStyle = g; ctx.lineWidth = 0.5 + 0.75 * dp;
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
           // tiny beads where the rung meets each backbone
           for (const e of [s.p, s.q]) {
-            ctx.beginPath(); ctx.arc(e.x, e.y, 1.1 + 1.3 * sc, 0, Math.PI * 2);
-            ctx.fillStyle = rgba(GOLD_A, 0.18 + 0.3 * sc); ctx.fill();
+            ctx.beginPath(); ctx.arc(e.x, e.y, 0.8 + 1.1 * dp, 0, Math.PI * 2);
+            ctx.fillStyle = rgba(GOLD_A, 0.14 + 0.22 * dp); ctx.fill();
           }
         }
+      }
+      // sparkling flares along the strands (like lens glints)
+      for (let i = 0; i < SA.length; i += 4) {
+        const hj = hash(i * 13);
+        if (hj < 0.45) continue;
+        const pt = (hj > 0.72 ? SA : SB)[i];
+        const sc = pt.scale;
+        const tw = 0.5 + 0.5 * Math.sin(now * 0.0009 + hj * 40);
+        const fr = (2 + 9 * Math.min(Math.pow(sc, 3), 4) * hj) * tw;
+        if (fr < 1.2) continue;
+        const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, fr);
+        g.addColorStop(0, rgba(GOLD_HI, 0.5 * tw));
+        g.addColorStop(0.25, rgba(GOLD_A, 0.16 * tw));
+        g.addColorStop(1, rgba(GOLD_A, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, fr, 0, Math.PI * 2); ctx.fill();
       }
       // sparse drifting dust for atmosphere
       for (let i = 0; i < SA.length; i += 5) {
