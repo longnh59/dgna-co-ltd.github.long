@@ -303,8 +303,8 @@
       <div class="sec-head rv">
         <span class="sec-label">Bệnh án dữ liệu</span>
         <h2>Một bản ghi sai <em>lây</em> như thế nào</h2>
-        <p>Dữ liệu sai không nằm yên. Giống virus, nó dùng chính bộ máy của tổ chức để tự nhân bản —
-          và lan nhanh hơn tốc độ bạn phát hiện ra nó.</p>
+        <p>Dữ liệu sai không nằm yên. Nó lan theo chính các đường đồng bộ mà tổ chức xây dựng,
+          thường nhanh hơn tốc độ phát hiện. Dưới đây là đường đi điển hình của một lỗi dữ liệu.</p>
       </div>
 
       <div class="phase phase-ill">
@@ -313,21 +313,23 @@
       <div class="grid g3">
         <div class="card stage ill rv">
           <span class="n">01 · ĐỘT BIẾN</span>
-          <h3>Một dòng lọt vào</h3>
-          <p>Một khách hàng bị nhập trùng dưới hai mã khác nhau. <em>Chỉ một dòng.</em>
-            Không cảnh báo, không ai nhận ra — vì bản thân nó trông hoàn toàn hợp lệ.</p>
+          <h3>Một bản ghi trùng được tạo</h3>
+          <p>Cùng một khách hàng tồn tại dưới hai mã: do nhập tay, do đến từ hai kênh bán,
+            hoặc do sáp nhập hệ thống. <em>Bản ghi hợp lệ về mặt kỹ thuật</em>, nên không có
+            ràng buộc nào chặn lại.</p>
         </div>
         <div class="card stage ill rv">
           <span class="n">02 · NHÂN BẢN</span>
-          <h3>Sai số tự sao chép</h3>
-          <p>CRM đồng bộ sang kho dữ liệu, kho dữ liệu nuôi báo cáo, báo cáo nuôi mô hình.
-            Sau một quý, <em>bản ghi sai đã nằm trong hàng chục hệ thống và báo cáo</em> — mỗi nơi một bản sao.</p>
+          <h3>Lỗi đi theo đường đồng bộ</h3>
+          <p>CRM đồng bộ sang kho dữ liệu; kho dữ liệu cấp cho báo cáo và mô hình phân tích.
+            Mỗi lần sao chép tạo thêm một bản của cùng lỗi, và <em>ranh giới giữa bản gốc
+            với bản sao mờ dần.</em></p>
         </div>
         <div class="card stage ill rv">
           <span class="n">03 · BIỂU HIỆN</span>
-          <h3>Sai số thành quyết định</h3>
-          <p>Doanh thu bị đếm hai lần. Tập khách hàng bị chia sai. Kế hoạch tồn kho lệch.
-            <em>Không ai nghi ngờ dữ liệu</em> — người ta nghi ngờ lẫn nhau.</p>
+          <h3>Lỗi xuất hiện trong quyết định</h3>
+          <p>Doanh thu theo khách hàng bị đếm hai lần; phân khúc, chỉ tiêu và dự báo lệch theo.
+            Tranh luận diễn ra quanh con số, <em>hiếm khi quanh nguồn gốc của con số.</em></p>
         </div>
       </div>
 
@@ -337,23 +339,24 @@
       <div class="grid g3">
         <div class="card stage well rv">
           <span class="n">04 · KHÁNG THỂ</span>
-          <h3>Phát hiện tại chỗ</h3>
-          <p>Luật chất lượng dữ liệu nhận diện bất thường <em>ngay khi bản ghi được tạo</em>,
-            chứ không phải sau một quý khi báo cáo đã lệch.</p>
+          <h3>Kiểm tra tại điểm phát sinh</h3>
+          <p>Luật chất lượng chạy ngay tại điểm nhập và điểm đồng bộ: phát hiện trùng lặp,
+            sai định dạng, vi phạm ràng buộc nghiệp vụ. <em>Lỗi được chặn ở nguồn</em>
+            thay vì lộ ra ở báo cáo cuối kỳ.</p>
           <div class="maps">→ Data Quality · giám sát &amp; cảnh báo</div>
         </div>
         <div class="card stage well rv">
           <span class="n">05 · CÁCH LY</span>
-          <h3>Khoanh vùng &amp; truy nguồn</h3>
-          <p>Quy trình xử lý sự cố dữ liệu: khoanh vùng ảnh hưởng, lần theo lineage về tận nguồn,
-            <em>sửa gốc thay vì vá từng báo cáo.</em></p>
+          <h3>Khoanh vùng theo lineage</h3>
+          <p>Sự cố được ghi nhận, phân loại và gán chủ sở hữu. Bản đồ lineage cho biết lỗi
+            đã lan tới những hệ thống và báo cáo nào, để <em>xử lý đúng phạm vi và sửa tại nguồn.</em></p>
           <div class="maps">→ Issue Management · Data Lineage</div>
         </div>
         <div class="card stage well rv">
           <span class="n">06 · TRÍ NHỚ</span>
-          <h3>Tổ chức ghi nhớ</h3>
-          <p>Định nghĩa đúng được ghi vào từ điển dữ liệu và khung quản trị.
-            <em>Lần sau tổ chức tự nhận ra</em> — đề kháng nằm trong quy trình, không nằm trong trí nhớ một người.</p>
+          <h3>Ghi lại thành chuẩn</h3>
+          <p>Định nghĩa được ghi vào từ điển dữ liệu; vai trò và quy trình xử lý được ghi vào
+            khung quản trị. <em>Đề kháng thuộc về tổ chức</em>, không phụ thuộc vào việc ai còn nhớ.</p>
           <div class="maps">→ Từ điển dữ liệu · Khung quản trị</div>
         </div>
       </div>
