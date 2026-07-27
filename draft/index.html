@@ -20,7 +20,7 @@
 
     /* ===== TOKENS ===== */
     :root {
-      --bg:#050403; --panel:rgba(22,17,7,.72); --panel-2:rgba(30,23,9,.55);
+      --bg:#050403; --panel:rgba(19,14,6,.9); --panel-2:rgba(28,21,8,.93);
       --gold:#fbbf24; --gold-hi:#ffd86b; --gold-dim:#b58f3c;
       --text:#f6efdd; --muted:#a79768;
       --line:rgba(251,191,36,.15); --line-2:rgba(251,191,36,.28);
@@ -575,38 +575,55 @@
     addEventListener('resize', resize);
     addEventListener('load', measure);
 
-    // k = 1 hero bloom, 0 slim spine at the right edge
-    function axisAt(a, t, k) {
-      const bias = 0.845 + (1 - k) * 0.115;
-      let x = W * bias + (a - H * 0.5) * DIRX * k;
+    /* smoothed scroll: the helix trails the real scroll position, so fast
+       flicks arrive as a slow glide instead of a snap */
+    let sTarget = scrollY, sEase = scrollY;
+    addEventListener('scroll', () => { sTarget = scrollY; }, { passive: true });
+
+    // the strand weaves across the page as you travel down it
+    function biasAt(s) {
+      return 0.70 + 0.16 * Math.sin(s * 0.00085) + 0.06 * Math.sin(s * 0.00191 + 1.1);
+    }
+    function axisAt(a, t, s) {
+      let x = W * biasAt(s + a * 0.6) + (a - H * 0.5) * DIRX;
       let y = a * DIRY;
-      x += (Math.sin(a * 0.0042 + t * 1.3) * Math.min(W * 0.026, 34)
-          + Math.sin(a * 0.00127 - t * 0.7) * Math.min(W * 0.05, 62)) * k;
-      y += Math.sin(a * 0.0031 + t * 0.9) * 14 * k;
-      const z = (Math.sin(a * 0.0019 + t * 0.8) * 34 + Math.sin(a * 0.0061 - t * 1.5) * 14) * k;
+      x += Math.sin(a * 0.0042 + t * 1.3) * Math.min(W * 0.022, 30)
+         + Math.sin(a * 0.00127 - t * 0.7) * Math.min(W * 0.04, 52);
+      y += Math.sin(a * 0.0031 + t * 0.9) * 14;
+      const z = Math.sin(a * 0.0019 + t * 0.8) * 34 + Math.sin(a * 0.0061 - t * 1.5) * 14;
       return { x, y, z };
     }
-    function twistAt(p, t) {
-      return (p / 360) * Math.PI * 2 + t
+    // scroll both advances along the strand AND spins it about its own axis
+    function twistAt(p, t, spin) {
+      return (p / 360) * Math.PI * 2 + t + spin
            + 0.95 * Math.sin(p * 0.0047 + t * 0.5)
            + 0.42 * Math.sin(p * 0.0091 - t * 0.9);
     }
-    function radiusAt(p, t, k) {
-      const base = 24 + (Math.min(W * 0.085, 108) - 24) * k;
-      const mod = 0.86 + (0.24 * Math.sin(p * 0.0058 + t * 0.7) + 0.11 * Math.sin(p * 0.0113 - t)) * (.35 + .65 * k);
-      return base * mod;
+    function radiusAt(p, t) {
+      const R0 = Math.min(W * 0.098, 124);
+      return R0 * (0.86 + 0.24 * Math.sin(p * 0.0058 + t * 0.7) + 0.11 * Math.sin(p * 0.0113 - t));
+    }
+    // lit sphere for the base-pair joints — the cue that reads as "3D"
+    function ball(x, y, r, col, al) {
+      const g = ctx.createRadialGradient(x - r * 0.36, y - r * 0.36, r * 0.08, x, y, r);
+      g.addColorStop(0, rgba(GOLD_HI, 0.95 * al));
+      g.addColorStop(0.42, rgba(col, 0.88 * al));
+      g.addColorStop(1, `rgba(52,32,5,${0.8 * al})`);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     }
 
     function draw(now) {
       ctx.clearRect(0, 0, W, H);
+      sEase += (sTarget - sEase) * 0.075;            // critically damped follow
       const t = now * 0.00017;
-      const sy = scrollY;
-      const k = Math.max(0, Math.min(1, 1 - sy / (H * 0.72)));   // hero -> spine
+      const sy = sEase;
+      const spin = sy * 0.0016;                      // scrolling turns the whole helix
       const step = 9, cY = H / 2;
       const aStart = Math.floor((-220 / DIRY) / step) * step, aEnd = (H + 220) / DIRY;
 
       function pt(a, p, phase) {
-        const ax = axisAt(a, t, k), R = radiusAt(p, t, k), ax2 = axisAt(a + 8, t, k);
+        const ax = axisAt(a, t, sy), R = radiusAt(p, t), ax2 = axisAt(a + 8, t, sy);
         let tx = ax2.x - ax.x, ty = ax2.y - ax.y;
         const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
         const nx = -ty, ny = tx, c = Math.cos(phase), s = Math.sin(phase);
@@ -616,7 +633,7 @@
 
       const SA = [], SB = [];
       for (let a = aStart; a < aEnd; a += step) {
-        const p = a + sy, ang = twistAt(p, t);
+        const p = a + sy, ang = twistAt(p, t, spin);
         SA.push(pt(a, p, ang)); SB.push(pt(a, p, ang + Math.PI));
       }
 
@@ -634,9 +651,9 @@
       }
       segs.sort((m, n) => n.z - m.z);
 
-      const boneW = s => (1.0 + 5.0 * Math.min(s * s, 2.6)) * (0.42 + 0.58 * k);
-      const rungH = s => (0.25 + 3.5 * Math.min(s * s * s, 3.3)) * (0.35 + 0.65 * k);
-      const fade = 0.30 + 0.55 * k;                 // decor, never louder than the content
+      const boneW = s => 0.9 + 4.4 * Math.min(s * s, 2.6);
+      const rungH = s => 0.25 + 3.2 * Math.min(s * s * s, 3.3);
+      const fade = 0.62;                             // present all the way down, never shouting
 
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       for (const s of segs) {
@@ -669,38 +686,39 @@
           ctx.moveTo(p.x + nx * hp, p.y + ny * hp); ctx.lineTo(q.x + nx * hq, q.y + ny * hq);
           ctx.lineTo(q.x - nx * hq, q.y - ny * hq); ctx.lineTo(p.x - nx * hp, p.y - ny * hp);
           ctx.closePath(); ctx.fill();
+          // lit spheres on the near-facing joint only — keeps the count low
+          const near = p.scale >= q.scale ? p : q;
+          if (near.scale > 1.02) ball(near.x, near.y, (1.1 + 2.3 * near.scale) * s.j, GOLD_A, fade);
         }
       }
 
       ctx.globalCompositeOperation = 'lighter';
-      if (k > 0.05) {                                // glints only while the helix is a showpiece
-        for (let i = 0; i < SA.length; i += 3) {
-          const hj = Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1);
-          if (hj < 0.55) continue;
-          const e = (hj > 0.78 ? SA : SB)[i], dp = e.scale ** 3;
-          if (dp < 1.5) continue;
-          const tw = (0.45 + 0.55 * Math.sin(now * 0.0009 + hj * 40)) * k;
-          const fr = (6 + 11 * (dp - 1.5)) * tw;
-          if (fr < 3) continue;
-          const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, fr);
-          g.addColorStop(0, rgba(GOLD_HI, 0.85 * tw)); g.addColorStop(0.2, rgba(GOLD_A, 0.3 * tw));
-          g.addColorStop(1, rgba(GOLD_A, 0));
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, fr, 0, 7) ; ctx.fill();
-        }
+      for (let i = 0; i < SA.length; i += 3) {       // lens glints on the nearest passes
+        const hj = Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1);
+        if (hj < 0.62) continue;
+        const e = (hj > 0.82 ? SA : SB)[i], dp = e.scale ** 3;
+        if (dp < 1.6) continue;
+        const tw = 0.45 + 0.55 * Math.sin(now * 0.0009 + hj * 40);
+        const fr = (5 + 9 * (dp - 1.6)) * tw;
+        if (fr < 3) continue;
+        const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, fr);
+        g.addColorStop(0, rgba(GOLD_HI, 0.7 * tw)); g.addColorStop(0.2, rgba(GOLD_A, 0.24 * tw));
+        g.addColorStop(1, rgba(GOLD_A, 0));
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, fr, 0, Math.PI * 2); ctx.fill();
       }
       // section nodes ride the strand and light up as their section centres
       nodePs.forEach(np => {
         const a = np - sy;
         if (a < aStart - 60 || a > aEnd + 60) return;
-        const e = pt(a, np, twistAt(np, t));
+        const e = pt(a, np, twistAt(np, t, spin));
         const on = Math.abs(e.y - cY) < H * 0.26;
         const r = 3.4 + e.scale * 3 + (on ? 4.5 + Math.sin(now * 0.002) * 1.6 : 0);
         const col = on ? [255, 234, 158] : [190, 150, 70];
-        ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, 7);
+        ctx.beginPath(); ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
         ctx.fillStyle = rgba(col, on ? 0.95 : 0.4);
         ctx.fill();
         if (on) {
-          ctx.beginPath(); ctx.arc(e.x, e.y, r + 6, 0, 7);
+          ctx.beginPath(); ctx.arc(e.x, e.y, r + 6, 0, Math.PI * 2);
           ctx.strokeStyle = rgba(col, 0.4); ctx.lineWidth = 1.4; ctx.stroke();
         }
       });
