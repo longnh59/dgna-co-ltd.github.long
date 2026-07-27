@@ -675,7 +675,7 @@
         const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
         const nx = -ty, ny = tx, c = Math.cos(phase), s = Math.sin(phase);
         const z = ax.z + s * R, sc = FOCAL / Math.max(160, FOCAL + z);   // never cross the focal plane
-        return { x: ax.x + c * R * nx * sc, y: ax.y + c * R * ny * sc, z, scale: sc, p };
+        return { x: ax.x + c * R * nx * sc, y: ax.y + c * R * ny * sc, z, scale: sc, p, nx, ny };
       }
 
       const SA = [], SB = [];
@@ -700,69 +700,109 @@
         return Math.min(g, 1);
       };
 
-      const segs = [];
-      for (let i = 1; i < N; i++) {
-        segs.push({ b: 1, p: SA[i - 1], q: SA[i], c: GOLD_A, z: (SA[i - 1].z + SA[i].z) / 2, glow: glowAt(0, i) });
-        segs.push({ b: 1, p: SB[i - 1], q: SB[i], c: GOLD_B, z: (SB[i - 1].z + SB[i].z) / 2, glow: glowAt(1, i) });
-      }
-      for (let i = 0; i < SA.length; i += 2) {
-        const pp = SA[i].p;
-        segs.push({
-          b: 0, p: SA[i], q: SB[i], z: (SA[i].z + SB[i].z) / 2, flip: (i >> 1) & 1,
-          j: 0.58 + 0.75 * Math.abs(Math.sin(pp * 0.083) * Math.cos(pp * 0.191 + 1.3))
-        });
-      }
-      segs.sort((m, n) => n.z - m.z);
+      /* ---- LOW-POLY WIREFRAME -------------------------------------------
+         Each strand is a faceted tube: three rails running along it, tied by
+         rings and diagonals into a triangle lattice. Base pairs are flat
+         planks subdivided the same way. Everything is thin translucent line
+         work, so the far side reads through the near side.
+         Lines are bucketed by alpha and stroked as one path per bucket —
+         a few thousand edges then cost a handful of draw calls. */
+      const fade = 0.78;
+      const NB = 8, MAXA = 0.82;
+      const lb = [], db = [];
+      for (let i = 0; i < NB; i++) { lb.push([]); db.push([]); }
+      const bkt = al => Math.max(0, Math.min(NB - 1, Math.round(al / MAXA * (NB - 1))));
+      const line = (x1, y1, x2, y2, al) => { const b = lb[bkt(al)]; b.push(x1, y1, x2, y2); };
+      const dot = (x, y, r, al) => { const b = db[bkt(al)]; b.push(x, y, r); };
+      const TUBE = 13;                                // tube radius in world units
 
-      const boneW = s => 0.9 + 4.4 * Math.min(s * s, 2.6);
-      const rungH = s => 0.25 + 3.2 * Math.min(s * s * s, 3.3);
-      const fade = 0.62;                             // present all the way down, never shouting
-
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      for (const s of segs) {
-        const sc = (s.p.scale + s.q.scale) / 2, dp = Math.min(sc * sc, 2.6);
-        if (s.b) {
-          const w = boneW(sc), col = shade(sc, s.c), hot = s.glow || 0;
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.strokeStyle = rgba(col, (0.022 + 0.042 * dp + hot * 0.10) * fade);
-          ctx.lineWidth = w * (2.6 + hot * 1.6);
-          ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.strokeStyle = rgba(col, Math.min(0.34 + 0.26 * dp, 0.96) * fade);
-          ctx.lineWidth = w * (1 + hot * 0.5);
-          ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          if (dp > 1.45 || hot > 0.05) {
-            ctx.strokeStyle = rgba(GOLD_HI, Math.min(Math.max(dp - 1.45, 0) * 0.62 + hot * 0.9, 0.95) * fade);
-            ctx.lineWidth = w * (0.34 + hot * 0.4);
-            ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
+      function railsOf(S, strand) {
+        const R3 = [[], [], []];
+        for (let i = 0; i < S.length; i++) {
+          const s = S[i], hot = glowAt(strand, i);
+          for (let k = 0; k < 3; k++) {
+            const phi = k * 2.0944 + s.p * 0.005;     // facets twist slowly along the strand
+            const oz = Math.sin(phi) * TUBE, z = s.z + oz;
+            const sc = FOCAL / Math.max(160, FOCAL + z);
+            R3[k].push({
+              x: s.x + Math.cos(phi) * TUBE * s.nx * sc,
+              y: s.y + Math.cos(phi) * TUBE * s.ny * sc,
+              sc, hot
+            });
           }
-        } else {
-          const p = s.p, q = s.q;
-          let dx = q.x - p.x, dy = q.y - p.y;
-          const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
-          const nx = -dy, ny = dx;
-          const hp = rungH(p.scale) * (s.flip ? 0.12 : 1) * s.j;
-          const hq = rungH(q.scale) * (s.flip ? 1 : 0.12) * s.j;
-          const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
-          const cp = shade(p.scale, GOLD_A), cq = shade(q.scale, GOLD_B);
-          ctx.globalCompositeOperation = 'source-over';
-          // two bases meeting at the middle, with a hairline gap between them
-          const half = (e, he, cm, hm, col, al) => {
-            ctx.fillStyle = rgba(col, al);
-            ctx.beginPath();
-            ctx.moveTo(e.x + nx * he, e.y + ny * he); ctx.lineTo(cm.x + nx * hm, cm.y + ny * hm);
-            ctx.lineTo(cm.x - nx * hm, cm.y - ny * hm); ctx.lineTo(e.x - nx * he, e.y - ny * he);
-            ctx.closePath(); ctx.fill();
-          };
-          const hmP = (hp + (hp + hq) / 2) / 2 * 0.9, hmQ = (hq + (hp + hq) / 2) / 2 * 0.9;
-          const mP = { x: mx - dx * L * 0.018, y: my - dy * L * 0.018 };
-          const mQ = { x: mx + dx * L * 0.018, y: my + dy * L * 0.018 };
-          half(p, hp, mP, hmP, cp, Math.min(0.21 + 0.31 * p.scale * p.scale, 0.92) * fade);
-          half(q, hq, mQ, hmQ, cq, Math.min(0.21 + 0.31 * q.scale * q.scale, 0.92) * fade);
-          // lit spheres on the near-facing joint only — keeps the count low
-          const near = p.scale >= q.scale ? p : q;
-          if (near.scale > 1.02) ball(near.x, near.y, (1.1 + 2.3 * near.scale) * s.j, GOLD_A, fade);
         }
+        return R3;
+      }
+      const edgeA = v => Math.min((0.13 + 0.55 * Math.max(0, (v.sc - 0.66) / 0.78) + v.hot * 0.45) * fade, MAXA);
+
+      for (const [S, strand] of [[SA, 0], [SB, 1]]) {
+        const R3 = railsOf(S, strand);
+        for (let k = 0; k < 3; k++) {
+          const r = R3[k], rn = R3[(k + 1) % 3];
+          for (let i = 1; i < r.length; i++) {
+            line(r[i - 1].x, r[i - 1].y, r[i].x, r[i].y, edgeA(r[i]));           // rail
+            line(r[i - 1].x, r[i - 1].y, rn[i].x, rn[i].y, edgeA(r[i]) * 0.7);   // diagonal -> triangles
+            if (i % 2 === 0) line(r[i].x, r[i].y, rn[i].x, rn[i].y, edgeA(r[i]) * 0.8);  // ring
+          }
+          for (let i = 0; i < r.length; i += 2)
+            dot(r[i].x, r[i].y, 0.6 + 1.5 * r[i].sc + r[i].hot * 1.6, Math.min(edgeA(r[i]) * 1.9, MAXA));
+        }
+      }
+
+      // base-pair planks, triangulated across their span
+      for (let i = 0; i < N; i += 2) {
+        const p = SA[i], q = SB[i];
+        const pp = p.p;
+        const j = 0.55 + 0.7 * Math.abs(Math.sin(pp * 0.083) * Math.cos(pp * 0.191 + 1.3));
+        const SEG = 3, PL = [];
+        for (let s2 = 0; s2 <= SEG; s2++) {
+          const f = s2 / SEG;
+          const zc = p.z + (q.z - p.z) * f;
+          const h = TUBE * 0.72 * j;
+          const zt = zc + h, zbm = zc - h;
+          const st = FOCAL / Math.max(160, FOCAL + zt), sb = FOCAL / Math.max(160, FOCAL + zbm);
+          const bx = p.x + (q.x - p.x) * f, by = p.y + (q.y - p.y) * f;
+          PL.push([{ x: bx, y: by - h * st * 0.35, sc: st }, { x: bx, y: by + h * sb * 0.35, sc: sb }]);
+        }
+        for (let s2 = 0; s2 < SEG; s2++) {
+          const a1 = PL[s2], a2 = PL[s2 + 1];
+          const al = Math.min(edgeA({ sc: (a1[0].sc + a2[0].sc) / 2, hot: 0 }) * 0.85, MAXA);
+          line(a1[0].x, a1[0].y, a2[0].x, a2[0].y, al);          // top rail
+          line(a1[1].x, a1[1].y, a2[1].x, a2[1].y, al);          // bottom rail
+          line(a1[0].x, a1[0].y, a1[1].x, a1[1].y, al * 0.8);    // cross bar
+          line(a1[0].x, a1[0].y, a2[1].x, a2[1].y, al * 0.6);    // diagonal
+        }
+        const last = PL[SEG];
+        line(last[0].x, last[0].y, last[1].x, last[1].y,
+             Math.min(edgeA({ sc: last[0].sc, hot: 0 }) * 0.7, MAXA));
+        dot(p.x, p.y, 0.8 + 1.8 * p.scale, Math.min(edgeA({ sc: p.scale, hot: 0 }) * 2.1, MAXA));
+        dot(q.x, q.y, 0.8 + 1.8 * q.scale, Math.min(edgeA({ sc: q.scale, hot: 0 }) * 2.1, MAXA));
+      }
+
+      // flush: one stroke and one fill per alpha bucket
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round'; ctx.lineWidth = 1;
+      for (let b = 0; b < NB; b++) {
+        const arr = lb[b];
+        if (!arr.length) continue;
+        const al = b / (NB - 1) * MAXA;
+        ctx.strokeStyle = rgba(shade(0.95 + b / (NB - 1) * 0.75, GOLD_A), al);
+        ctx.beginPath();
+        for (let i = 0; i < arr.length; i += 4) {
+          ctx.moveTo(arr[i], arr[i + 1]); ctx.lineTo(arr[i + 2], arr[i + 3]);
+        }
+        ctx.stroke();
+      }
+      for (let b = 0; b < NB; b++) {
+        const arr = db[b];
+        if (!arr.length) continue;
+        ctx.fillStyle = rgba(GOLD_HI, b / (NB - 1) * MAXA * 1.5);
+        ctx.beginPath();
+        for (let i = 0; i < arr.length; i += 3) {
+          ctx.moveTo(arr[i] + arr[i + 2], arr[i + 1]);
+          ctx.arc(arr[i], arr[i + 1], arr[i + 2], 0, Math.PI * 2);
+        }
+        ctx.fill();
       }
 
       ctx.globalCompositeOperation = 'lighter';
