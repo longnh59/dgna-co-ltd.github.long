@@ -521,75 +521,142 @@
       ctx.globalCompositeOperation = 'source-over';
     }
 
-    /* ---- LAYER 3: particle DNA double helix (right side, clear of text) ---- */
+    /* ---- LAYER 3: free-form 3D particle DNA (right side, clear of text) ---- */
     const RIGHT_BIAS = 0.70;   // horizontal anchor as fraction of width (keeps DNA off the text)
+    const FOCAL = 760;         // perspective focal length (px)
+
+    // deterministic per-particle noise (stable jitter)
+    function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
+
+    // organic 3D axis: layered incommensurate sines in x, y and depth z
+    function axisAt(a, t) {
+      let x = W * RIGHT_BIAS + a * DIRX;
+      let y = a * DIRY;
+      x += Math.sin(a * 0.0042 + t * 1.3) * Math.min(W * 0.026, 34)
+         + Math.sin(a * 0.00127 - t * 0.7) * Math.min(W * 0.05, 62)
+         + Math.sin(a * 0.0093 + t * 2.2) * 10;
+      y += Math.sin(a * 0.0031 + t * 0.9) * 14;
+      const z = Math.sin(a * 0.0019 + t * 0.8) * 90
+              + Math.sin(a * 0.0061 - t * 1.5) * 38;
+      return { x, y, z };
+    }
+    // variable twist: tight and loose zones that slowly migrate
+    function twistAt(p, t) {
+      return (p / 250) * Math.PI * 2 + t
+           + 0.9 * Math.sin(p * 0.0016 + t * 0.5)
+           + 0.35 * Math.sin(p * 0.0049 - t * 0.9);
+    }
+    // breathing radius along the strand
+    function radiusAt(a, t) {
+      const R0 = Math.min(W * 0.10, 118);
+      return R0 * (0.8 + 0.28 * Math.sin(a * 0.0023 + t * 0.7) + 0.1 * Math.sin(a * 0.0071 - t));
+    }
+
     function drawHelix(now) {
       const t = now * 0.00042;
       const scrollY = window.scrollY;
-      const R = Math.min(W * 0.10, 118);
-      const pitch = 250, step = 9;
+      const step = 9;
       const centerY = H / 2;
-      const anchorX = W * RIGHT_BIAS;
-      const swayAmp = Math.min(W * 0.03, 38), swayFreq = 0.006;
 
-      const aStart = Math.floor((-200 / DIRY) / step) * step;
-      const aEnd = (H + 200) / DIRY;
+      const aStart = Math.floor((-220 / DIRY) / step) * step;
+      const aEnd = (H + 220) / DIRY;
+
+      // project a 3D helix point to screen (perspective about the axis)
+      function strandPoint(a, phase, t) {
+        const ax = axisAt(a, t);
+        const R = radiusAt(a, t);
+        // local frame from axis tangent (finite difference)
+        const ax2 = axisAt(a + 8, t);
+        let tx = ax2.x - ax.x, ty = ax2.y - ax.y;
+        const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+        const px = -ty, py = tx;                       // screen-plane perpendicular
+        const c = Math.cos(phase), s = Math.sin(phase);
+        const z3 = ax.z + s * R;                       // total depth
+        const scale = FOCAL / (FOCAL + z3);            // perspective
+        return {
+          x: ax.x + c * R * px * scale,
+          y: ax.y + c * R * py * scale,
+          z: z3, scale
+        };
+      }
 
       const dots = [];
       let k = 0;
       for (let a = aStart; a < aEnd; a += step) {
         const p = a + scrollY;
-        const sway = swayAmp * Math.sin(a * swayFreq + t * 1.6);
-        const axX = anchorX + a * DIRX + sway, axY = a * DIRY;
-        const ang = (p / pitch) * Math.PI * 2 + t;
-        const ca = Math.cos(ang), cb = Math.cos(ang + Math.PI);
-        const ax = axX + ca * R * PERPX, ay = axY + ca * R * PERPY;
-        const bx = axX + cb * R * PERPX, by = axY + cb * R * PERPY;
-        const tw = 0.72 + 0.28 * Math.sin(k * 1.3 + now * 0.004);   // twinkle
-        dots.push({ x: ax, y: ay, z: Math.sin(ang), c: GOLD_A, tw });
-        dots.push({ x: bx, y: by, z: Math.sin(ang + Math.PI), c: GOLD_B, tw });
-        if (k % 2 === 0) {                                          // base-pair as beads
-          const zr = (Math.sin(ang) + Math.sin(ang + Math.PI)) / 2;
-          for (let s = 1; s <= 3; s++) {
-            const f = s / 4;
-            dots.push({ x: ax + (bx - ax) * f, y: ay + (by - ay) * f, z: zr, c: GOLD_B, tw, rung: true });
+        const ang = twistAt(p, t);
+        const pa = strandPoint(a, ang, t);
+        const pb = strandPoint(a, ang + Math.PI, t);
+        // stable per-particle jitter + tiny individual wobble => less "formula" look
+        const j1 = hash(k * 2), j2 = hash(k * 2 + 1);
+        const wob = Math.sin(now * 0.0016 + k * 2.7);
+        pa.x += (j1 - 0.5) * 7 + wob * 1.6; pa.y += (j2 - 0.5) * 7;
+        pb.x += (j2 - 0.5) * 7 - wob * 1.6; pb.y += (j1 - 0.5) * 7;
+        const tw = 0.6 + 0.4 * Math.sin(k * 1.3 + now * 0.004 + j1 * 6);
+        dots.push({ ...pa, c: GOLD_A, tw });
+        dots.push({ ...pb, c: GOLD_B, tw });
+        if (k % 2 === 0) {                              // base-pair beads
+          for (let s2 = 1; s2 <= 3; s2++) {
+            const f = s2 / 4;
+            dots.push({
+              x: pa.x + (pb.x - pa.x) * f, y: pa.y + (pb.y - pa.y) * f,
+              z: pa.z + (pb.z - pa.z) * f, scale: (pa.scale + pb.scale) / 2,
+              c: GOLD_B, tw, rung: true
+            });
           }
+        }
+        // ambient dust drifting around the strand
+        if (k % 3 === 0) {
+          const dj = hash(k * 5 + 3);
+          const spread = radiusAt(a, t) * (1.4 + dj * 2.2);
+          const dAng = dj * Math.PI * 2 + now * 0.0003 * (dj > 0.5 ? 1 : -1);
+          const ax = axisAt(a, t);
+          const dz = ax.z + Math.sin(dAng) * spread;
+          const dscale = FOCAL / (FOCAL + dz);
+          dots.push({
+            x: ax.x + Math.cos(dAng) * spread * dscale + (hash(k * 7) - 0.5) * 30,
+            y: ax.y + (hash(k * 11) - 0.5) * 46,
+            z: dz, scale: dscale, c: GOLD_B, tw: tw * 0.5, dust: true
+          });
         }
         k++;
       }
 
-      dots.sort((m, n) => m.z - n.z);          // far -> near
+      dots.sort((m, n) => n.z - m.z);          // far (large z) -> near
       ctx.globalCompositeOperation = 'lighter';
       for (const it of dots) {
-        const d = (it.z + 1) / 2;
-        const rad = it.rung ? (0.6 + d * 1.1) : (1.1 + d * 2.6);
+        const sc = it.scale;
+        const rad = Math.max((it.rung ? 1.0 : it.dust ? 0.9 : 2.1) * sc * (it.dust ? 1 : 1.15), 0.35);
+        const alpha = Math.min(((it.rung ? 0.16 : it.dust ? 0.12 : 0.5) * sc) * it.tw, 0.85);
+        // cheap halo instead of shadowBlur (keeps 60fps)
+        if (!it.dust && sc > 1.0) {
+          ctx.beginPath(); ctx.arc(it.x, it.y, rad * 3.2, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(it.c, alpha * 0.16); ctx.fill();
+        }
         ctx.beginPath(); ctx.arc(it.x, it.y, rad, 0, Math.PI * 2);
-        ctx.fillStyle = rgba(it.c, ((it.rung ? 0.08 : 0.2) + d * (it.rung ? 0.22 : 0.6)) * it.tw);
+        ctx.fillStyle = rgba(it.c, alpha);
         ctx.fill();
       }
       ctx.globalCompositeOperation = 'source-over';
 
-      // content nodes (glow when centred)
+      // content nodes (glow when centred) — ride strand A
       nodePs.forEach(np => {
         const a = np - scrollY;
         if (a < aStart - 60 || a > aEnd + 60) return;
-        const sway = swayAmp * Math.sin(a * swayFreq + t * 1.6);
-        const axX = anchorX + a * DIRX + sway, axY = a * DIRY;
-        const ang = (np / pitch) * Math.PI * 2 + t;
-        const ca = Math.cos(ang);
-        const x = axX + ca * R * PERPX, y = axY + ca * R * PERPY, z = Math.sin(ang);
-        const d = (z + 1) / 2;
-        const active = Math.abs(y - centerY) < H * 0.24;
+        const ang = twistAt(np, t);
+        const pt = strandPoint(a, ang, t);
+        const d = pt.scale;
+        const active = Math.abs(pt.y - centerY) < H * 0.24;
         const pulse = active ? Math.sin(now * 0.005) * 1.8 : 0;
-        const rad = 4 + d * 4 + (active ? 5 + pulse : 0);
+        const rad = (3.5 + d * 4) + (active ? 5 + pulse : 0);
         const col = active ? [255, 234, 158] : [190, 150, 70];
-        ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
-        ctx.fillStyle = rgba(col, active ? 0.98 : 0.35 + d * 0.4);
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, rad, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(col, active ? 0.98 : 0.3 + d * 0.4);
         ctx.shadowColor = rgba(col, active ? 0.95 : 0.5);
-        ctx.shadowBlur = active ? 30 : 8 + d * 8;
+        ctx.shadowBlur = active ? 30 : d * 12;
         ctx.fill();
         if (active) {
-          ctx.beginPath(); ctx.arc(x, y, rad + 7, 0, Math.PI * 2);
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, rad + 7, 0, Math.PI * 2);
           ctx.strokeStyle = rgba(col, 0.45); ctx.lineWidth = 1.5; ctx.stroke();
         }
         ctx.shadowBlur = 0;
