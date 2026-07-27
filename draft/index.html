@@ -548,16 +548,17 @@
               + Math.sin(a * 0.0061 - t * 1.5) * 14;
       return { x, y, z };
     }
-    // variable twist: gentle, with tight/loose zones that slowly migrate (no fixed law)
+    // variable twist. wavelengths are ~1.5-3 turns so neighbouring loops differ:
+    // some stretch out, some bunch up, and the zones migrate over time
     function twistAt(p, t) {
       return (p / 360) * Math.PI * 2 + t     // pitch ≈ 1.4 x diameter, measured off the reference
-           + 0.32 * Math.sin(p * 0.0011 + t * 0.5)
-           + 0.13 * Math.sin(p * 0.0037 - t * 0.9);
+           + 0.95 * Math.sin(p * 0.0047 + t * 0.5)
+           + 0.42 * Math.sin(p * 0.0091 - t * 0.9);
     }
-    // subtle breathing radius along the strand
-    function radiusAt(a, t) {
+    // radius swings per loop too, so no two coils are the same width
+    function radiusAt(p, t) {
       const R0 = Math.min(W * 0.105, 132);
-      return R0 * (0.93 + 0.06 * Math.sin(a * 0.0021 + t * 0.7) + 0.025 * Math.sin(a * 0.0064 - t));
+      return R0 * (0.86 + 0.24 * Math.sin(p * 0.0058 + t * 0.7) + 0.11 * Math.sin(p * 0.0113 - t));
     }
 
     function drawHelix(now) {
@@ -570,9 +571,9 @@
       const aEnd = (H + 220) / DIRY;
 
       // project a 3D helix point to screen (perspective about the axis)
-      function strandPoint(a, phase, t) {
+      function strandPoint(a, p, phase, t) {
         const ax = axisAt(a, t);
-        const R = radiusAt(a, t);
+        const R = radiusAt(p, t);
         // local frame from axis tangent (finite difference)
         const ax2 = axisAt(a + 8, t);
         let tx = ax2.x - ax.x, ty = ax2.y - ax.y;
@@ -584,16 +585,17 @@
         return {
           x: ax.x + c * R * px * scale,
           y: ax.y + c * R * py * scale,
-          z: z3, scale
+          z: z3, scale, p
         };
       }
 
       // sample the two backbones as continuous polylines
       const SA = [], SB = [];
       for (let a = aStart; a < aEnd; a += step) {
-        const ang = twistAt(a + scrollY, t);
-        SA.push(strandPoint(a, ang, t));
-        SB.push(strandPoint(a, ang + Math.PI, t));
+        const p = a + scrollY;
+        const ang = twistAt(p, t);
+        SA.push(strandPoint(a, p, ang, t));
+        SB.push(strandPoint(a, p, ang + Math.PI, t));
       }
 
       // build depth-sorted segments: backbones + base-pair rungs
@@ -605,7 +607,13 @@
       for (let i = 0; i < SA.length; i += 2) {         // ~10 rungs per half turn
         // alternate which backbone the wedge is broad at -> low-poly fan with
         // leaf-shaped dark gaps, as in the reference
-        segs.push({ kind: 'rung', p: SA[i], q: SB[i], z: (SA[i].z + SB[i].z) / 2, flip: (i >> 1) & 1 });
+        const pp = SA[i].p;
+        segs.push({
+          kind: 'rung', p: SA[i], q: SB[i], z: (SA[i].z + SB[i].z) / 2,
+          flip: (i >> 1) & 1,
+          // continuous pseudo-noise: every wedge gets its own heft
+          j: 0.58 + 0.75 * Math.abs(Math.sin(pp * 0.083) * Math.cos(pp * 0.191 + 1.3))
+        });
       }
       segs.sort((m, n) => n.z - m.z);                  // far -> near
 
@@ -638,8 +646,8 @@
           let dx = q.x - p.x, dy = q.y - p.y;
           const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
           const nx = -dy, ny = dx;
-          const hp = rungH(p.scale) * (s.flip ? 0.12 : 1);
-          const hq = rungH(q.scale) * (s.flip ? 1 : 0.12);
+          const hp = rungH(p.scale) * (s.flip ? 0.12 : 1) * s.j;
+          const hq = rungH(q.scale) * (s.flip ? 1 : 0.12) * s.j;
           const g = ctx.createLinearGradient(p.x, p.y, q.x, q.y);
           g.addColorStop(0, rgba(GOLD_A, Math.min(0.16 + 0.26 * p.scale * p.scale, 0.88)));
           g.addColorStop(1, rgba(GOLD_B, Math.min(0.16 + 0.26 * q.scale * q.scale, 0.88)));
@@ -706,7 +714,7 @@
         const a = np - scrollY;
         if (a < aStart - 60 || a > aEnd + 60) return;
         const ang = twistAt(np, t);
-        const pt = strandPoint(a, ang, t);
+        const pt = strandPoint(a, np, ang, t);
         const d = pt.scale;
         const active = Math.abs(pt.y - centerY) < H * 0.24;
         const pulse = active ? Math.sin(now * 0.002) * 1.8 : 0;
