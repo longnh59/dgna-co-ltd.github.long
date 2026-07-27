@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description"
+    content="DGNA — Dữ liệu là DNA của doanh nghiệp. Giải pháp, đào tạo và công cụ quản trị dữ liệu, cuộn dọc theo chuỗi xoắn DGNA.">
+  <title>DGNA · Chuỗi Xoắn Dữ Liệu (Bản nháp)</title>
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧬</text></svg>">
+
+  <style>
+    /* ===== FONT ===== */
+    @font-face {
+      font-family: 'FzPoppins';
+      src: url('../Font/FzPoppins/FZ%20Poppins-Regular.ttf') format('truetype');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'FzPoppins';
+      src: url('../Font/FzPoppins/FZ%20Poppins-SemiBold.ttf') format('truetype');
+      font-weight: 600;
+    }
+    @font-face {
+      font-family: 'FzPoppins';
+      src: url('../Font/FzPoppins/FZ%20Poppins-Bold.ttf') format('truetype');
+      font-weight: 700;
+    }
+    @font-face {
+      font-family: 'FzPoppins';
+      src: url('../Font/FzPoppins/FZ%20Poppins-ExtraBold.ttf') format('truetype');
+      font-weight: 800;
+    }
+
+    /* ===== TOKENS ===== */
+    :root {
+      --bg: #05070e;
+      --bg2: #0a1020;
+      --blue: #38bdf8;
+      --cyan: #22d3ee;
+      --teal: #2dd4bf;
+      --gold: #fbbf24;
+      --violet: #818cf8;
+      --text: #e6edff;
+      --muted: #90a0c4;
+      --line: rgba(120, 150, 220, 0.14);
+      --card: rgba(15, 22, 42, 0.72);
+      --radius: 18px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'FzPoppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== BACKGROUND ===== */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(120, 150, 220, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(120, 150, 220, 0.05) 1px, transparent 1px);
+      background-size: 54px 54px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 40%, #000 30%, transparent 100%);
+    }
+    .bg-orb {
+      position: fixed; border-radius: 50%; filter: blur(90px); z-index: 0; opacity: .5; pointer-events: none;
+    }
+    .orb-1 { width: 480px; height: 480px; background: rgba(56, 189, 248, .18); top: -120px; left: -120px; }
+    .orb-2 { width: 520px; height: 520px; background: rgba(45, 212, 191, .14); bottom: -160px; right: -140px; }
+
+    /* helix canvas fixed behind content */
+    #helix {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      z-index: 1; pointer-events: none;
+    }
+
+    /* ===== SCROLL PROGRESS ===== */
+    .progress {
+      position: fixed; top: 0; left: 0; height: 3px; width: 0;
+      background: linear-gradient(90deg, var(--blue), var(--teal), var(--gold));
+      z-index: 60; box-shadow: 0 0 12px rgba(56, 189, 248, .6);
+    }
+
+    /* ===== NAV ===== */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px clamp(20px, 5vw, 60px);
+      transition: background .3s, backdrop-filter .3s, padding .3s;
+    }
+    nav.scrolled {
+      background: rgba(5, 7, 14, .72); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line); padding-top: 12px; padding-bottom: 12px;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; letter-spacing: -.5px; text-decoration: none; color: var(--text); }
+    .logo .mark { color: var(--blue); }
+    .logo .mark em { color: var(--gold); font-style: normal; }
+    .nav-links { display: flex; gap: 30px; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 15px; transition: color .2s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      padding: 10px 20px; border-radius: 999px; border: 1px solid var(--blue);
+      background: rgba(56, 189, 248, .1); color: var(--blue); font-weight: 600; font-size: 14px;
+      cursor: pointer; transition: all .2s; font-family: inherit;
+    }
+    .nav-cta:hover { background: var(--blue); color: #041019; }
+    @media (max-width: 820px) { .nav-links { display: none; } }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative; z-index: 5; min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 0 24px;
+    }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 16px; border-radius: 999px; border: 1px solid var(--line);
+      background: rgba(56, 189, 248, .06); color: var(--blue); font-size: 13px;
+      letter-spacing: 2px; text-transform: uppercase; margin-bottom: 26px;
+    }
+    .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 10px var(--teal); }
+    .hero h1 {
+      font-size: clamp(38px, 7vw, 82px); font-weight: 800; line-height: 1.05; letter-spacing: -2px;
+      max-width: 15ch;
+    }
+    .hero h1 em {
+      font-style: normal; position: relative;
+      background: linear-gradient(120deg, var(--blue), var(--teal), var(--gold));
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      margin-top: 26px; max-width: 60ch; color: var(--muted); font-size: clamp(16px, 2vw, 20px);
+    }
+    .hero-actions { margin-top: 40px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .btn {
+      padding: 15px 30px; border-radius: 999px; font-weight: 600; font-size: 16px; cursor: pointer;
+      border: none; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .btn-primary { background: linear-gradient(120deg, var(--blue), var(--teal)); color: #041019; }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 14px 40px rgba(45, 212, 191, .3); }
+    .btn-ghost { background: rgba(255, 255, 255, .04); color: var(--text); border: 1px solid var(--line); }
+    .btn-ghost:hover { border-color: var(--blue); }
+    .scroll-hint {
+      position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%);
+      color: var(--muted); font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .scroll-hint .mouse {
+      width: 24px; height: 38px; border: 2px solid var(--muted); border-radius: 14px; position: relative;
+    }
+    .scroll-hint .mouse::after {
+      content: ''; position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 8px; border-radius: 2px; background: var(--blue);
+      animation: wheel 1.6s infinite;
+    }
+    @keyframes wheel { 0% { opacity: 0; top: 7px; } 40% { opacity: 1; } 100% { opacity: 0; top: 20px; } }
+
+    /* ===== HELIX SECTIONS ===== */
+    .strand { position: relative; z-index: 5; }
+    .hx {
+      min-height: 96vh; display: flex; align-items: center;
+      padding: 40px clamp(20px, 6vw, 90px);
+    }
+    .hx.left { justify-content: flex-start; }
+    .hx.right { justify-content: flex-end; }
+
+    .card {
+      width: min(460px, 44vw);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 34px 34px 30px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+      opacity: 0; transform: translateY(40px) scale(.97);
+      transition: opacity .7s cubic-bezier(.2, .7, .2, 1), transform .7s cubic-bezier(.2, .7, .2, 1);
+    }
+    .hx.left .card { transform: translateY(40px) translateX(-24px) scale(.97); }
+    .hx.right .card { transform: translateY(40px) translateX(24px) scale(.97); }
+    .card.in { opacity: 1; transform: translateY(0) translateX(0) scale(1); }
+
+    .node-tag { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .node-num {
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 700; font-size: 13px;
+      color: var(--gold); border: 1px solid rgba(251, 191, 36, .3); border-radius: 8px; padding: 4px 10px;
+      letter-spacing: 1px;
+    }
+    .node-kicker { color: var(--teal); font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+    .card h2 { font-size: clamp(24px, 3vw, 34px); font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-bottom: 14px; }
+    .card h2 em { font-style: normal; color: var(--blue); }
+    .card p { color: var(--muted); font-size: 16px; }
+    .card ul { list-style: none; margin-top: 20px; display: grid; gap: 11px; }
+    .card li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; color: var(--text); }
+    .card li b { color: var(--text); font-weight: 600; }
+    .card li .ck {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px; margin-top: 1px;
+      display: grid; place-items: center; font-size: 12px; font-weight: 700;
+      background: rgba(45, 212, 191, .12); color: var(--teal);
+    }
+    .card .card-cta { margin-top: 24px; display: inline-flex; }
+
+    .mini-grid { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .mini {
+      border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+      background: rgba(255, 255, 255, .02);
+    }
+    .mini .mi-ico { font-size: 20px; margin-bottom: 6px; }
+    .mini h4 { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .mini span { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+
+    @media (max-width: 820px) {
+      .hx { justify-content: center !important; padding: 30px 20px; min-height: 88vh; }
+      .card { width: 100%; max-width: 480px; }
+      .hx.left .card, .hx.right .card { transform: translateY(40px) scale(.97); }
+      #helix { opacity: .38; }
+      .mini-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ===== CONTACT / CTA ===== */
+    .contact { position: relative; z-index: 5; padding: 90px clamp(20px, 6vw, 90px) 60px; }
+    .contact-box {
+      max-width: 1000px; margin: 0 auto; text-align: center;
+      background: linear-gradient(160deg, rgba(56, 189, 248, .1), rgba(45, 212, 191, .05));
+      border: 1px solid var(--line); border-radius: 28px; padding: clamp(40px, 6vw, 72px);
+      backdrop-filter: blur(16px);
+    }
+    .contact-box h2 { font-size: clamp(28px, 4.5vw, 48px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.1; }
+    .contact-box h2 em { font-style: normal; background: linear-gradient(120deg, var(--blue), var(--gold)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .contact-box p { color: var(--muted); margin-top: 18px; max-width: 60ch; margin-inline: auto; font-size: 17px; }
+    .contact-meta { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 26px; justify-content: center; color: var(--muted); font-size: 15px; }
+    .contact-meta b { color: var(--text); font-weight: 600; }
+    .contact .btn { margin-top: 34px; }
+
+    footer {
+      position: relative; z-index: 5; text-align: center; color: var(--muted); font-size: 14px;
+      padding: 30px 20px 50px; border-top: 1px solid var(--line);
+    }
+    .draft-flag {
+      position: fixed; bottom: 16px; left: 16px; z-index: 55;
+      font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--gold);
+      border: 1px dashed rgba(251, 191, 36, .4); border-radius: 999px; padding: 5px 12px;
+      background: rgba(5, 7, 14, .7);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <canvas id="helix"></canvas>
+  <div class="progress" id="progress"></div>
+
+  <!-- NAV -->
+  <nav id="nav">
+    <a href="#top" class="logo"><span class="mark">DG<em>NA</em></span></a>
+    <div class="nav-links">
+      <a href="#solutions">Giải Pháp</a>
+      <a href="#training">Đào Tạo</a>
+      <a href="#tools">Công Cụ</a>
+      <a href="#process">Quy Trình</a>
+      <a href="#contact">Liên Hệ</a>
+    </div>
+    <button class="nav-cta" onclick="document.getElementById('contact').scrollIntoView()">Tư Vấn Miễn Phí</button>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero" id="top">
+    <div class="eyebrow"><span class="dot"></span> Data Governance · DGNA</div>
+    <h1>Dữ liệu là <em>DNA</em> của doanh nghiệp</h1>
+    <p>DGNA giải mã, cấu trúc và quản trị dữ liệu — biến những mảnh dữ liệu rời rạc thành một chuỗi giá trị liền mạch.
+      Cuộn xuống để đi dọc theo chuỗi xoắn DGNA.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#contact">Bắt Đầu Ngay <span>→</span></a>
+      <a class="btn btn-ghost" href="#story">Khám Phá Chuỗi</a>
+    </div>
+    <div class="scroll-hint"><div class="mouse"></div> Cuộn</div>
+  </header>
+
+  <!-- HELIX STRAND -->
+  <main class="strand">
+
+    <!-- 01 · STORY -->
+    <section class="hx left" id="story" data-node>
+      <div class="card">
+        <div class="node-tag"><span class="node-num">01</span><span class="node-kicker">Câu chuyện DGNA</span></div>
+        <h2>Từ <em>DNA</em> đến <em>DGNA</em></h2>
+        <p>Giống như DNA mã hóa sự sống, dữ liệu mã hóa doanh nghiệp. Mỗi tổ chức mang một chuỗi dữ liệu riêng —
+          nhiệm vụ của chúng tôi là giúp chuỗi ấy <b>sạch, khỏe và nhân bản được giá trị</b>.</p>
+        <ul>
+          <li><span class="ck">✓</span><span><b>D</b>ata — dữ liệu là tài sản cốt lõi</span></li>
+          <li><span class="ck">✓</span><span><b>G</b>overnance — quản trị chặt chẽ, minh bạch</span></li>
+          <li><span class="ck">✓</span><span><b>N</b>etwork &amp; <b>A</b>rchitecture — kết nối và kiến trúc bền vững</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 02 · SOLUTIONS -->
+    <section class="hx right" id="solutions" data-node>
+      <div class="card">
+        <div class="node-tag"><span class="node-num">02</span><span class="node-kicker">Giải pháp</span></div>
+        <h2>Giải Pháp <em>Toàn Diện</em> Cho Dữ Liệu</h2>
+        <p>Đánh giá hiện trạng, thiết kế mô hình mục tiêu và kiến trúc dữ liệu phù hợp với quy mô doanh nghiệp.</p>
+        <ul>
+          <li><span class="ck">✓</span><span>Đánh giá mức độ trưởng thành dữ liệu (Maturity)</span></li>
+          <li><span class="ck">✓</span><span>Xây dựng khung kiến trúc dữ liệu</span></li>
+          <li><span class="ck">✓</span><span>Xây dựng khung quản trị &amp; quản lý dữ liệu</span></li>
+          <li><span class="ck">✓</span><span>Xây dựng từ điển dữ liệu doanh nghiệp</span></li>
+        </ul>
+        <a class="btn btn-ghost card-cta" href="../dictionary/">Xem Từ Điển Dữ Liệu →</a>
+      </div>
+    </section>
+
+    <!-- 03 · TRAINING -->
+    <section class="hx left" id="training" data-node>
+      <div class="card">
+        <div class="node-tag"><span class="node-num">03</span><span class="node-kicker">Đào tạo</span></div>
+        <h2>Đào Tạo <em>Chuyên Sâu</em></h2>
+        <p>Chương trình bài bản từ nhận thức đến chuyên gia, theo hai lộ trình rõ ràng.</p>
+        <div class="mini-grid">
+          <div class="mini"><div class="mi-ico">🌱</div><h4>Awareness</h4><span>Nhận thức Data Governance</span></div>
+          <div class="mini"><div class="mi-ico">⚙️</div><h4>Practitioner</h4><span>Thực hành DQM, Catalog</span></div>
+          <div class="mini"><div class="mi-ico">🏆</div><h4>Champion</h4><span>Maturity, ROI, văn hóa dữ liệu</span></div>
+          <div class="mini"><div class="mi-ico">🎯</div><h4>Consultant</h4><span>Lộ trình tư vấn viên DG</span></div>
+        </div>
+        <a class="btn btn-ghost card-cta" href="../practice/">Làm Bài Kiểm Tra Thử →</a>
+      </div>
+    </section>
+
+    <!-- 04 · TOOLS -->
+    <section class="hx right" id="tools" data-node>
+      <div class="card">
+        <div class="node-tag"><span class="node-num">04</span><span class="node-kicker">Công cụ quản trị</span></div>
+        <h2>Công Cụ <em>Quản Trị Dữ Liệu</em></h2>
+        <p>Bộ công cụ giúp đội ngũ vận hành và giám sát dữ liệu mỗi ngày.</p>
+        <div class="mini-grid">
+          <div class="mini"><div class="mi-ico">📚</div><h4>Data Catalog</h4><span>Kiểm kê &amp; truy vết dữ liệu</span></div>
+          <div class="mini"><div class="mi-ico">📖</div><h4>Business Glossary</h4><span>Chuẩn hóa thuật ngữ</span></div>
+          <div class="mini"><div class="mi-ico">🩺</div><h4>Data Quality</h4><span>Giám sát chất lượng</span></div>
+          <div class="mini"><div class="mi-ico">📊</div><h4>Governance Board</h4><span>Dashboard &amp; issue mgmt</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 · PROCESS -->
+    <section class="hx left" id="process" data-node>
+      <div class="card">
+        <div class="node-tag"><span class="node-num">05</span><span class="node-kicker">Quy trình</span></div>
+        <h2>4 Bước <em>Triển Khai</em></h2>
+        <p>Các "cặp base" của chuỗi — phương pháp luận đã được kiểm chứng.</p>
+        <ul>
+          <li><span class="ck">1</span><span><b>Khảo sát &amp; Đánh giá</b> — phân tích hiện trạng dữ liệu</span></li>
+          <li><span class="ck">2</span><span><b>Thiết kế giải pháp</b> — kiến trúc, chính sách, quy trình</span></li>
+          <li><span class="ck">3</span><span><b>Triển khai &amp; Đào tạo</b> — cài đặt và chuyển giao</span></li>
+          <li><span class="ck">4</span><span><b>Vận hành &amp; Tối ưu</b> — đo lường và cải tiến liên tục</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 06 · WHY -->
+    <section class="hx right" id="why" data-node>
+      <div class="card">
+        <div class="node-tag"><span class="node-num">06</span><span class="node-kicker">Lợi thế</span></div>
+        <h2>Tại Sao Chọn <em>DGNA</em>?</h2>
+        <ul>
+          <li><span class="ck">✦</span><span><b>Đội ngũ chuyên gia</b> — 10+ năm, am hiểu luật dữ liệu Việt Nam</span></li>
+          <li><span class="ck">✦</span><span><b>Chuẩn quốc tế</b> — DAMA-DMBOK, ISO 8000</span></li>
+          <li><span class="ck">✦</span><span><b>Đồng hành dài hạn</b> — từ thiết kế đến vận hành ổn định</span></li>
+          <li><span class="ck">✦</span><span><b>Giải pháp tùy biến</b> — theo quy mô và ngành nghề</span></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- CONTACT -->
+  <section class="contact" id="contact">
+    <div class="contact-box">
+      <h2>Sẵn sàng giải mã <em>chuỗi dữ liệu</em> của bạn?</h2>
+      <p>Để lại thông tin, chúng tôi sẽ liên hệ tư vấn trong vòng 24 giờ.</p>
+      <div class="contact-meta">
+        <span>📧 <b>dgna.co.ltd@gmail.com</b></span>
+        <span>📞 <b>0332 689 968</b> (Mr. Hùng Mạnh)</span>
+        <span>📍 <b>Hà Nội</b></span>
+      </div>
+      <a class="btn btn-primary" href="../index.html#contact">Gửi Yêu Cầu Tư Vấn <span>→</span></a>
+    </div>
+  </section>
+
+  <footer>© 2026 DGNA · Nền tảng quản trị dữ liệu doanh nghiệp</footer>
+  <div class="draft-flag">🧬 Bản nháp concept</div>
+
+  <script>
+    /* ===== NAV SCROLL ===== */
+    const nav = document.getElementById('nav');
+    const progress = document.getElementById('progress');
+    function onScroll() {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      progress.style.width = (max > 0 ? (window.scrollY / max) * 100 : 0) + '%';
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    /* ===== REVEAL CARDS ===== */
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.querySelector('.card').classList.add('in'); });
+    }, { threshold: 0.35 });
+    document.querySelectorAll('.hx').forEach(s => io.observe(s));
+
+    /* ===== 3D DNA HELIX ===== */
+    const canvas = document.getElementById('helix');
+    const ctx = canvas.getContext('2d');
+    let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+    let nodePs = [];
+
+    function resize() {
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = W * DPR; canvas.height = H * DPR;
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      computeNodes();
+    }
+    // page-Y coordinate (backbone px) of each section center
+    function computeNodes() {
+      const sc = window.scrollY;
+      nodePs = [...document.querySelectorAll('[data-node]')].map(el => {
+        const r = el.getBoundingClientRect();
+        return r.top + sc + r.height / 2;
+      });
+    }
+    window.addEventListener('resize', resize);
+    window.addEventListener('load', computeNodes);
+
+    const STRAND_A = [56, 189, 248];   // blue
+    const STRAND_B = [45, 212, 191];   // teal
+    function rgba(c, a) { return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+
+    function draw(now) {
+      const t = now * 0.00042;                 // continuous rotation
+      const scrollY = window.scrollY;
+      const cx = W / 2;
+      const R = Math.min(W * 0.15, 165);        // helix radius
+      const pitch = 240;                        // px per full turn
+      const step = 15;                          // sample spacing along backbone
+      const centerY = H / 2;
+
+      ctx.clearRect(0, 0, W, H);
+      const items = [];
+
+      const startP = Math.floor((scrollY - 140) / step) * step;
+      const endP = scrollY + H + 140;
+      let k = 0;
+      for (let p = startP; p < endP; p += step) {
+        const ang = (p / pitch) * Math.PI * 2 + t;
+        const ax = cx + R * Math.cos(ang), az = Math.sin(ang);
+        const bx = cx + R * Math.cos(ang + Math.PI), bz = Math.sin(ang + Math.PI);
+        const y = p - scrollY;
+        items.push({ type: 'dot', x: ax, y, z: az, c: STRAND_A });
+        items.push({ type: 'dot', x: bx, y, z: bz, c: STRAND_B });
+        if (k % 3 === 0) items.push({ type: 'rung', x1: ax, x2: bx, y, z: (az + bz) / 2 });
+        k++;
+      }
+      // content nodes
+      nodePs.forEach((np, i) => {
+        const ang = (np / pitch) * Math.PI * 2 + t;
+        const x = cx + R * Math.cos(ang), z = Math.sin(ang), y = np - scrollY;
+        if (y < -160 || y > H + 160) return;
+        const active = Math.abs(y - centerY) < H * 0.26;
+        items.push({ type: 'node', x, y, z, active, i });
+      });
+
+      items.sort((a, b) => a.z - b.z);          // painter's: far → near
+
+      items.forEach(it => {
+        const d = (it.z + 1) / 2;                // 0 far, 1 near
+        if (it.type === 'rung') {
+          const g = ctx.createLinearGradient(it.x1, it.y, it.x2, it.y);
+          g.addColorStop(0, rgba(STRAND_A, 0.05 + d * 0.18));
+          g.addColorStop(1, rgba(STRAND_B, 0.05 + d * 0.18));
+          ctx.strokeStyle = g; ctx.lineWidth = 0.6 + d * 1.4;
+          ctx.beginPath(); ctx.moveTo(it.x1, it.y); ctx.lineTo(it.x2, it.y); ctx.stroke();
+        } else if (it.type === 'dot') {
+          const rad = 1.6 + d * 3;
+          ctx.beginPath(); ctx.arc(it.x, it.y, rad, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(it.c, 0.18 + d * 0.7);
+          ctx.shadowColor = rgba(it.c, 0.5); ctx.shadowBlur = d * 10;
+          ctx.fill(); ctx.shadowBlur = 0;
+        } else {
+          // content node
+          const pulse = it.active ? Math.sin(now * 0.005) * 1.6 : 0;
+          const rad = 4 + d * 5 + (it.active ? 4 + pulse : 0);
+          const col = it.active ? [251, 191, 36] : [130, 160, 220];
+          ctx.beginPath(); ctx.arc(it.x, it.y, rad, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(col, it.active ? 0.95 : 0.35 + d * 0.4);
+          ctx.shadowColor = rgba(col, it.active ? 0.9 : 0.4);
+          ctx.shadowBlur = it.active ? 26 : d * 8;
+          ctx.fill();
+          if (it.active) {
+            ctx.beginPath(); ctx.arc(it.x, it.y, rad + 6, 0, Math.PI * 2);
+            ctx.strokeStyle = rgba(col, 0.4); ctx.lineWidth = 1.4; ctx.stroke();
+          }
+          ctx.shadowBlur = 0;
+        }
+      });
+
+      requestAnimationFrame(draw);
+    }
+
+    resize();
+    requestAnimationFrame(draw);
+  </script>
+</body>
+
+</html>
