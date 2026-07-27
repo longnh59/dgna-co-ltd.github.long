@@ -564,6 +564,8 @@
       cv.width = W * DPR; cv.height = H * DPR;
       cv.style.width = W + 'px'; cv.style.height = H + 'px';
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      A0 = Math.floor((-220 / DIRY) / 9) * 9;
+      A1 = (H + 220) / DIRY;
       measure();
     }
     function measure() {
@@ -577,20 +579,47 @@
 
     /* smoothed scroll: the helix trails the real scroll position, so fast
        flicks arrive as a slow glide instead of a snap */
-    let sTarget = scrollY, sEase = scrollY;
+    let sTarget = scrollY, sEase = scrollY, sPrev = scrollY;
     addEventListener('scroll', () => { sTarget = scrollY; }, { passive: true });
+
+    /* ---- PHYSICS SPINE ----------------------------------------------------
+       The strand hangs like a weighted cord: neighbouring points pull on each
+       other, gravity bows the span, and scrolling whips it sideways. Waves
+       then travel along it and die out. Nothing here repeats on a cycle. */
+    const PN = 34;
+    const off = new Float32Array(PN), vel = new Float32Array(PN), buf = new Float32Array(PN);
+    let A0 = 0, A1 = 1;                                 // along-axis span on screen
+
+    function physics(t) {
+      const d = Math.max(-90, Math.min(90, sTarget - sPrev));   // scroll impulse
+      sPrev = sTarget;
+      const TENSION = 0.22, LANE = 0.016, DAMP = 0.94;
+      buf.set(off);                        // read the previous state: an in-place read makes
+                                           // the Laplacian asymmetric and the cord explodes
+      for (let i = 1; i < PN - 1; i++) {
+        const u = i / (PN - 1), hang = Math.sin(Math.PI * u);   // free in the middle, pinned at the ends
+        let f = TENSION * (buf[i - 1] + buf[i + 1] - 2 * buf[i]) - LANE * buf[i];
+        f += hang * 1.3 * Math.sin(t * 0.55 + u * 1.7);         // gravity bow, slowly swinging
+        const v = Math.max(-40, Math.min(40, (vel[i] + f + d * 0.085 * hang) * DAMP));
+        vel[i] = v;
+        off[i] = Math.max(-300, Math.min(300, off[i] + v));
+      }
+      off[0] = off[1] * 0.5; off[PN - 1] = off[PN - 2] * 0.5;   // soft anchors
+    }
+    function sag(a) {                                    // sample the cord at position a
+      const u = Math.max(0, Math.min(1, (a - A0) / (A1 - A0))) * (PN - 1);
+      const i = Math.min(PN - 2, Math.floor(u)), f = u - i;
+      return off[i] + (off[i + 1] - off[i]) * f;
+    }
 
     // the strand weaves across the page as you travel down it
     function biasAt(s) {
       return 0.70 + 0.16 * Math.sin(s * 0.00085) + 0.06 * Math.sin(s * 0.00191 + 1.1);
     }
     function axisAt(a, t, s) {
-      let x = W * biasAt(s + a * 0.6) + (a - H * 0.5) * DIRX;
-      let y = a * DIRY;
-      x += Math.sin(a * 0.0042 + t * 1.3) * Math.min(W * 0.022, 30)
-         + Math.sin(a * 0.00127 - t * 0.7) * Math.min(W * 0.04, 52);
-      y += Math.sin(a * 0.0031 + t * 0.9) * 14;
-      const z = Math.sin(a * 0.0019 + t * 0.8) * 34 + Math.sin(a * 0.0061 - t * 1.5) * 14;
+      let x = W * biasAt(s + a * 0.6) + (a - H * 0.5) * DIRX + sag(a);
+      let y = a * DIRY + sag(a) * 0.16;                  // the cord dips as it swings
+      const z = sag(a) * 0.55 + Math.sin(a * 0.0019 + t * 0.8) * 30;
       return { x, y, z };
     }
     // scroll both advances along the strand AND spins it about its own axis
@@ -603,6 +632,23 @@
       const R0 = Math.min(W * 0.098, 124);
       return R0 * (0.86 + 0.24 * Math.sin(p * 0.0058 + t * 0.7) + 0.11 * Math.sin(p * 0.0113 - t));
     }
+    const GOLD_DEEP = [104, 64, 14];
+    const mix = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+    // deep bronze when far, bright gold near, white-hot on the closest pass
+    function shade(sc, warm) {
+      const f = Math.max(0, Math.min(1, (sc - 0.72) / 0.72));
+      const base = mix(GOLD_DEEP, warm, f);
+      return sc > 1.22 ? mix(base, GOLD_HI, Math.min((sc - 1.22) / 0.4, 0.75)) : base;
+    }
+
+    /* energy packets running down the strand — data flowing through the helix */
+    const pulses = Array.from({ length: 5 }, (_, i) => ({ u: i / 5, sp: 0.0016 + Math.random() * 0.0018, s: i & 1 }));
+    /* ambient motes drifting around the cord */
+    const motes = Array.from({ length: 60 }, () => ({
+      x: Math.random(), y: Math.random(), vx: (Math.random() - .5) * .00018,
+      vy: -0.00006 - Math.random() * 0.00014, r: Math.random() * 1.5 + .4, ph: Math.random() * 6.28
+    }));
+
     // lit sphere for the base-pair joints — the cue that reads as "3D"
     function ball(x, y, r, col, al) {
       const g = ctx.createRadialGradient(x - r * 0.36, y - r * 0.36, r * 0.08, x, y, r);
@@ -617,17 +663,18 @@
       ctx.clearRect(0, 0, W, H);
       sEase += (sTarget - sEase) * 0.075;            // critically damped follow
       const t = now * 0.00017;
+      physics(t);
       const sy = sEase;
       const spin = sy * 0.0016;                      // scrolling turns the whole helix
       const step = 9, cY = H / 2;
-      const aStart = Math.floor((-220 / DIRY) / step) * step, aEnd = (H + 220) / DIRY;
+      const aStart = A0, aEnd = A1;
 
       function pt(a, p, phase) {
         const ax = axisAt(a, t, sy), R = radiusAt(p, t), ax2 = axisAt(a + 8, t, sy);
         let tx = ax2.x - ax.x, ty = ax2.y - ax.y;
         const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
         const nx = -ty, ny = tx, c = Math.cos(phase), s = Math.sin(phase);
-        const z = ax.z + s * R, sc = FOCAL / (FOCAL + z);
+        const z = ax.z + s * R, sc = FOCAL / Math.max(160, FOCAL + z);   // never cross the focal plane
         return { x: ax.x + c * R * nx * sc, y: ax.y + c * R * ny * sc, z, scale: sc, p };
       }
 
@@ -637,10 +684,26 @@
         SA.push(pt(a, p, ang)); SB.push(pt(a, p, ang + Math.PI));
       }
 
+      // energy packets travel down the strands and light the segments they cross
+      const N = SA.length;
+      for (const pu of pulses) {
+        pu.u += pu.sp;
+        if (pu.u > 1.12) { pu.u = -0.12; pu.s = Math.random() < 0.5 ? 0 : 1; pu.sp = 0.0016 + Math.random() * 0.0018; }
+      }
+      const glowAt = (strand, i) => {
+        let g = 0;
+        for (const pu of pulses) {
+          if (pu.s !== strand) continue;
+          const d = (i / (N - 1) - pu.u) * (N - 1) / 5.5;
+          if (d > -3 && d < 3) g += Math.exp(-d * d);
+        }
+        return Math.min(g, 1);
+      };
+
       const segs = [];
-      for (let i = 1; i < SA.length; i++) {
-        segs.push({ b: 1, p: SA[i - 1], q: SA[i], c: GOLD_A, z: (SA[i - 1].z + SA[i].z) / 2 });
-        segs.push({ b: 1, p: SB[i - 1], q: SB[i], c: GOLD_B, z: (SB[i - 1].z + SB[i].z) / 2 });
+      for (let i = 1; i < N; i++) {
+        segs.push({ b: 1, p: SA[i - 1], q: SA[i], c: GOLD_A, z: (SA[i - 1].z + SA[i].z) / 2, glow: glowAt(0, i) });
+        segs.push({ b: 1, p: SB[i - 1], q: SB[i], c: GOLD_B, z: (SB[i - 1].z + SB[i].z) / 2, glow: glowAt(1, i) });
       }
       for (let i = 0; i < SA.length; i += 2) {
         const pp = SA[i].p;
@@ -659,16 +722,18 @@
       for (const s of segs) {
         const sc = (s.p.scale + s.q.scale) / 2, dp = Math.min(sc * sc, 2.6);
         if (s.b) {
-          const w = boneW(sc);
+          const w = boneW(sc), col = shade(sc, s.c), hot = s.glow || 0;
           ctx.globalCompositeOperation = 'lighter';
-          ctx.strokeStyle = rgba(s.c, (0.022 + 0.042 * dp) * fade); ctx.lineWidth = w * 2.6;
+          ctx.strokeStyle = rgba(col, (0.022 + 0.042 * dp + hot * 0.10) * fade);
+          ctx.lineWidth = w * (2.6 + hot * 1.6);
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
           ctx.globalCompositeOperation = 'source-over';
-          ctx.strokeStyle = rgba(s.c, Math.min(0.34 + 0.26 * dp, 0.96) * fade); ctx.lineWidth = w;
+          ctx.strokeStyle = rgba(col, Math.min(0.34 + 0.26 * dp, 0.96) * fade);
+          ctx.lineWidth = w * (1 + hot * 0.5);
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          if (dp > 1.45) {
-            ctx.strokeStyle = rgba(GOLD_HI, Math.min((dp - 1.45) * 0.62, 0.7) * fade);
-            ctx.lineWidth = w * 0.34;
+          if (dp > 1.45 || hot > 0.05) {
+            ctx.strokeStyle = rgba(GOLD_HI, Math.min(Math.max(dp - 1.45, 0) * 0.62 + hot * 0.9, 0.95) * fade);
+            ctx.lineWidth = w * (0.34 + hot * 0.4);
             ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
           }
         } else {
@@ -678,14 +743,22 @@
           const nx = -dy, ny = dx;
           const hp = rungH(p.scale) * (s.flip ? 0.12 : 1) * s.j;
           const hq = rungH(q.scale) * (s.flip ? 1 : 0.12) * s.j;
-          const g = ctx.createLinearGradient(p.x, p.y, q.x, q.y);
-          g.addColorStop(0, rgba(GOLD_A, Math.min(0.16 + 0.26 * p.scale * p.scale, 0.88) * fade));
-          g.addColorStop(1, rgba(GOLD_B, Math.min(0.16 + 0.26 * q.scale * q.scale, 0.88) * fade));
-          ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = g;
-          ctx.beginPath();
-          ctx.moveTo(p.x + nx * hp, p.y + ny * hp); ctx.lineTo(q.x + nx * hq, q.y + ny * hq);
-          ctx.lineTo(q.x - nx * hq, q.y - ny * hq); ctx.lineTo(p.x - nx * hp, p.y - ny * hp);
-          ctx.closePath(); ctx.fill();
+          const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+          const cp = shade(p.scale, GOLD_A), cq = shade(q.scale, GOLD_B);
+          ctx.globalCompositeOperation = 'source-over';
+          // two bases meeting at the middle, with a hairline gap between them
+          const half = (e, he, cm, hm, col, al) => {
+            ctx.fillStyle = rgba(col, al);
+            ctx.beginPath();
+            ctx.moveTo(e.x + nx * he, e.y + ny * he); ctx.lineTo(cm.x + nx * hm, cm.y + ny * hm);
+            ctx.lineTo(cm.x - nx * hm, cm.y - ny * hm); ctx.lineTo(e.x - nx * he, e.y - ny * he);
+            ctx.closePath(); ctx.fill();
+          };
+          const hmP = (hp + (hp + hq) / 2) / 2 * 0.9, hmQ = (hq + (hp + hq) / 2) / 2 * 0.9;
+          const mP = { x: mx - dx * L * 0.018, y: my - dy * L * 0.018 };
+          const mQ = { x: mx + dx * L * 0.018, y: my + dy * L * 0.018 };
+          half(p, hp, mP, hmP, cp, Math.min(0.21 + 0.31 * p.scale * p.scale, 0.92) * fade);
+          half(q, hq, mQ, hmQ, cq, Math.min(0.21 + 0.31 * q.scale * q.scale, 0.92) * fade);
           // lit spheres on the near-facing joint only — keeps the count low
           const near = p.scale >= q.scale ? p : q;
           if (near.scale > 1.02) ball(near.x, near.y, (1.1 + 2.3 * near.scale) * s.j, GOLD_A, fade);
@@ -693,6 +766,17 @@
       }
 
       ctx.globalCompositeOperation = 'lighter';
+      // motes drifting upward through the scene, brighter near the cord
+      for (const m of motes) {
+        m.x += m.vx; m.y += m.vy;
+        if (m.y < -0.03) { m.y = 1.03; m.x = Math.random(); }
+        if (m.x < -0.03) m.x = 1.03; else if (m.x > 1.03) m.x = -0.03;
+        const mx = m.x * W, my = m.y * H;
+        const tw = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(now * 0.0012 + m.ph));
+        const near = 1 - Math.min(1, Math.abs(mx - (W * biasAt(sy + (my / DIRY) * 0.6) + sag(my / DIRY))) / (W * 0.3));
+        ctx.beginPath(); ctx.arc(mx, my, m.r * (1 + near), 0, Math.PI * 2);
+        ctx.fillStyle = rgba(GOLD_HI, (0.05 + 0.22 * near) * tw); ctx.fill();
+      }
       for (let i = 0; i < SA.length; i += 3) {       // lens glints on the nearest passes
         const hj = Math.abs(Math.sin(i * 12.9898) * 43758.5453 % 1);
         if (hj < 0.62) continue;
