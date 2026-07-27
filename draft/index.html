@@ -76,6 +76,13 @@
     }
     .orb-1 { width: 480px; height: 480px; background: rgba(251, 191, 36, .16); top: -120px; left: -120px; }
     .orb-2 { width: 520px; height: 520px; background: rgba(217, 160, 60, .12); bottom: -160px; right: -140px; }
+    /* ambient halo behind the helix (right side) */
+    .orb-3 { width: 640px; height: 760px; background: rgba(235, 176, 60, .10); top: 12%; right: -6%; filter: blur(120px); }
+    /* dark vignette to sink the edges, reference-style */
+    .vignette {
+      position: fixed; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(ellipse 105% 90% at 46% 42%, transparent 52%, rgba(0, 0, 0, .34) 82%, rgba(0, 0, 0, .62) 100%);
+    }
 
     /* helix canvas fixed behind content */
     #helix {
@@ -268,7 +275,9 @@
   <div class="bg-grid"></div>
   <div class="bg-orb orb-1"></div>
   <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
   <canvas id="helix"></canvas>
+  <div class="vignette"></div>
   <div class="progress" id="progress"></div>
 
   <!-- NAV -->
@@ -535,20 +544,20 @@
       x += Math.sin(a * 0.0042 + t * 1.3) * Math.min(W * 0.026, 34)
          + Math.sin(a * 0.00127 - t * 0.7) * Math.min(W * 0.05, 62);
       y += Math.sin(a * 0.0031 + t * 0.9) * 14;
-      const z = Math.sin(a * 0.0019 + t * 0.8) * 90
-              + Math.sin(a * 0.0061 - t * 1.5) * 38;
+      const z = Math.sin(a * 0.0019 + t * 0.8) * 34
+              + Math.sin(a * 0.0061 - t * 1.5) * 14;
       return { x, y, z };
     }
     // variable twist: gentle, with tight/loose zones that slowly migrate (no fixed law)
     function twistAt(p, t) {
       return (p / 430) * Math.PI * 2 + t
-           + 0.55 * Math.sin(p * 0.0011 + t * 0.5)
-           + 0.22 * Math.sin(p * 0.0037 - t * 0.9);
+           + 0.32 * Math.sin(p * 0.0011 + t * 0.5)
+           + 0.13 * Math.sin(p * 0.0037 - t * 0.9);
     }
     // subtle breathing radius along the strand
     function radiusAt(a, t) {
-      const R0 = Math.min(W * 0.105, 122);
-      return R0 * (0.88 + 0.14 * Math.sin(a * 0.0021 + t * 0.7) + 0.05 * Math.sin(a * 0.0064 - t));
+      const R0 = Math.min(W * 0.115, 138);
+      return R0 * (0.93 + 0.06 * Math.sin(a * 0.0021 + t * 0.7) + 0.025 * Math.sin(a * 0.0064 - t));
     }
 
     function drawHelix(now) {
@@ -593,7 +602,7 @@
         segs.push({ kind: 'bone', p: SA[i - 1], q: SA[i], c: GOLD_A, z: (SA[i - 1].z + SA[i].z) / 2 });
         segs.push({ kind: 'bone', p: SB[i - 1], q: SB[i], c: GOLD_B, z: (SB[i - 1].z + SB[i].z) / 2 });
       }
-      for (let i = 0; i < SA.length; i += 3) {         // a rung every ~24px along the axis
+      for (let i = 0; i < SA.length; i += 2) {         // dense ladder: a rung every ~16px
         segs.push({ kind: 'rung', p: SA[i], q: SB[i], z: (SA[i].z + SB[i].z) / 2 });
       }
       segs.sort((m, n) => n.z - m.z);                  // far -> near
@@ -602,49 +611,50 @@
       ctx.globalCompositeOperation = 'lighter';
       for (const s of segs) {
         const sc = (s.p.scale + s.q.scale) / 2;
-        // cubic depth curve => near segments thick & blazing, far ones hairline-thin
-        const dp = Math.min(Math.pow(sc, 3), 4.2);
+        // quartic depth curve => far pass almost fades out, near pass blazes
+        const dp = Math.min(Math.pow(sc, 4), 4.0);
         if (s.kind === 'bone') {
           // soft outer glow, swells with proximity
-          ctx.strokeStyle = rgba(s.c, 0.028 + 0.05 * dp); ctx.lineWidth = 5 + 8 * dp;
+          ctx.strokeStyle = rgba(s.c, 0.02 + 0.06 * dp); ctx.lineWidth = 4 + 10 * dp;
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          // main line: hairline far away -> bold rope up close
-          ctx.strokeStyle = rgba(s.c, Math.min(0.10 + 0.26 * dp, 0.9));
-          ctx.lineWidth = 0.5 + 2.3 * dp;
+          // main line: near-invisible hairline far away -> bold rope up close
+          ctx.strokeStyle = rgba(s.c, Math.min(0.05 + 0.24 * dp, 0.95));
+          ctx.lineWidth = 0.4 + 2.2 * dp;
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          // bright core on the nearest passes
-          if (dp > 1.6) {
-            ctx.strokeStyle = rgba(GOLD_HI, (dp - 1.6) * 0.16);
-            ctx.lineWidth = 0.5 + (dp - 1.6) * 1.1;
+          // white-hot core on the nearest passes
+          if (dp > 1.5) {
+            ctx.strokeStyle = rgba(GOLD_HI, (dp - 1.5) * 0.28);
+            ctx.lineWidth = 0.5 + (dp - 1.5) * 1.5;
             ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
           }
         } else {
           // short connector between the two backbones
           const g = ctx.createLinearGradient(s.p.x, s.p.y, s.q.x, s.q.y);
-          g.addColorStop(0, rgba(GOLD_A, 0.08 + 0.14 * dp));
-          g.addColorStop(0.5, rgba(GOLD_B, 0.04 + 0.07 * dp));
-          g.addColorStop(1, rgba(GOLD_B, 0.08 + 0.14 * dp));
-          ctx.strokeStyle = g; ctx.lineWidth = 0.5 + 0.75 * dp;
+          g.addColorStop(0, rgba(GOLD_A, 0.05 + 0.15 * dp));
+          g.addColorStop(0.5, rgba(GOLD_B, 0.025 + 0.075 * dp));
+          g.addColorStop(1, rgba(GOLD_B, 0.05 + 0.15 * dp));
+          ctx.strokeStyle = g; ctx.lineWidth = 0.4 + 0.7 * dp;
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
           // tiny beads where the rung meets each backbone
           for (const e of [s.p, s.q]) {
-            ctx.beginPath(); ctx.arc(e.x, e.y, 0.8 + 1.1 * dp, 0, Math.PI * 2);
-            ctx.fillStyle = rgba(GOLD_A, 0.14 + 0.22 * dp); ctx.fill();
+            ctx.beginPath(); ctx.arc(e.x, e.y, 0.7 + 1.1 * dp, 0, Math.PI * 2);
+            ctx.fillStyle = rgba(GOLD_A, 0.10 + 0.24 * dp); ctx.fill();
           }
         }
       }
-      // sparkling flares along the strands (like lens glints)
-      for (let i = 0; i < SA.length; i += 4) {
+      // sparkling flares along the strands (lens glints on near passes)
+      for (let i = 0; i < SA.length; i += 3) {
         const hj = hash(i * 13);
-        if (hj < 0.45) continue;
-        const pt = (hj > 0.72 ? SA : SB)[i];
-        const sc = pt.scale;
-        const tw = 0.5 + 0.5 * Math.sin(now * 0.0009 + hj * 40);
-        const fr = (2 + 9 * Math.min(Math.pow(sc, 3), 4) * hj) * tw;
-        if (fr < 1.2) continue;
+        if (hj < 0.4) continue;
+        const pt = (hj > 0.7 ? SA : SB)[i];
+        const dp = Math.min(Math.pow(pt.scale, 4), 4);
+        if (dp < 1.1) continue;                        // only glint when near
+        const tw = 0.45 + 0.55 * Math.sin(now * 0.0009 + hj * 40);
+        const fr = (4 + 7 * dp * hj) * tw;
+        if (fr < 1.5) continue;
         const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, fr);
-        g.addColorStop(0, rgba(GOLD_HI, 0.5 * tw));
-        g.addColorStop(0.25, rgba(GOLD_A, 0.16 * tw));
+        g.addColorStop(0, rgba(GOLD_HI, 0.75 * tw));
+        g.addColorStop(0.22, rgba(GOLD_A, 0.22 * tw));
         g.addColorStop(1, rgba(GOLD_A, 0));
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(pt.x, pt.y, fr, 0, Math.PI * 2); ctx.fill();
