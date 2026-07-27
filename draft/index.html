@@ -175,15 +175,22 @@
     .hx.right { justify-content: flex-end; }
 
     .card {
+      position: relative;
       width: min(460px, 44vw);
-      background: var(--card);
+      background: linear-gradient(160deg, rgba(35, 26, 8, .82), rgba(14, 10, 4, .8));
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 34px 34px 30px;
       backdrop-filter: blur(16px);
-      box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 220, 130, .1);
       opacity: 0; transform: translateY(40px) scale(.97);
       transition: opacity .7s cubic-bezier(.2, .7, .2, 1), transform .7s cubic-bezier(.2, .7, .2, 1);
+    }
+    .card::before {
+      content: ''; position: absolute; inset: 0; border-radius: var(--radius); padding: 1px;
+      background: linear-gradient(160deg, rgba(255, 210, 90, .55), transparent 40%, transparent 70%, rgba(204, 148, 52, .35));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
     }
     .hx.left .card { transform: translateY(40px) translateX(-24px) scale(.97); }
     .hx.right .card { transform: translateY(40px) translateX(24px) scale(.97); }
@@ -417,20 +424,37 @@
     }, { threshold: 0.35 });
     document.querySelectorAll('.hx').forEach(s => io.observe(s));
 
-    /* ===== 3D DNA HELIX ===== */
+    /* ===== CANVAS ENGINE — DNA + mesh + wave + molecule (gold/black) ===== */
     const canvas = document.getElementById('helix');
     const ctx = canvas.getContext('2d');
     let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
     let nodePs = [];
+    let mesh = [];
 
+    const GOLD_A = [255, 214, 92];    // bright gold strand
+    const GOLD_B = [204, 148, 52];    // deep amber strand
+    const GOLD_HI = [255, 244, 200];  // specular highlight
+    function rgba(c, a) { return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+
+    function buildMesh() {
+      mesh = [];
+      const n = Math.min(70, Math.round((W * H) / 26000));
+      for (let i = 0; i < n; i++) {
+        mesh.push({
+          x: Math.random() * W, y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.16, vy: (Math.random() - 0.5) * 0.16,
+          r: Math.random() * 1.3 + 0.4
+        });
+      }
+    }
     function resize() {
       W = window.innerWidth; H = window.innerHeight;
       canvas.width = W * DPR; canvas.height = H * DPR;
       canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      buildMesh();
       computeNodes();
     }
-    // page-Y coordinate (backbone px) of each section center
     function computeNodes() {
       const sc = window.scrollY;
       nodePs = [...document.querySelectorAll('[data-node]')].map(el => {
@@ -441,52 +465,124 @@
     window.addEventListener('resize', resize);
     window.addEventListener('load', computeNodes);
 
-    const STRAND_A = [255, 210, 74];   // bright gold
-    const STRAND_B = [200, 150, 55];   // deep amber gold
-    function rgba(c, a) { return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+    // diagonal axis + gravity sway
+    const THETA = 24 * Math.PI / 180;
+    const DIRX = Math.sin(THETA), DIRY = Math.cos(THETA);
+    const PERPX = Math.cos(THETA), PERPY = -Math.sin(THETA);
 
-    // Diagonal axis (tilted from vertical) + gravity sway
-    const THETA = 24 * Math.PI / 180;              // tilt angle
-    const DIRX = Math.sin(THETA), DIRY = Math.cos(THETA);   // axis direction (down-right)
-    const PERPX = Math.cos(THETA), PERPY = -Math.sin(THETA); // perpendicular (strand spread)
+    /* ---- LAYER 1: background network mesh ---- */
+    function drawMesh() {
+      const MAXD = 130;
+      for (const p of mesh) {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x += W; else if (p.x > W) p.x -= W;
+        if (p.y < 0) p.y += H; else if (p.y > H) p.y -= H;
+      }
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < mesh.length; i++) {
+        for (let j = i + 1; j < mesh.length; j++) {
+          const a = mesh[i], b = mesh[j];
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < MAXD) {
+            ctx.strokeStyle = rgba(GOLD_B, 0.10 * (1 - dist / MAXD));
+            ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          }
+        }
+      }
+      for (const p of mesh) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(GOLD_A, 0.5); ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
 
-    function draw(now) {
-      const t = now * 0.00042;                 // continuous rotation
+    /* ---- LAYER 2: glowing particle wave field (screen-fixed bottom) ---- */
+    function drawWave(now) {
+      const rows = 7, rowGap = 30, baseY = H + 8, cols = 46;
+      const t = now * 0.0012;
+      ctx.globalCompositeOperation = 'lighter';
+      for (let r = rows - 1; r >= 0; r--) {
+        const depth = 1 - r / rows;            // near (bottom) -> 1
+        const y0 = baseY - r * rowGap;
+        const dotR = 0.7 + depth * 1.9;
+        for (let c = 0; c <= cols; c++) {
+          const x = (c / cols) * (W + 80) - 40;
+          const y = y0 - Math.sin(c * 0.32 + t + r * 0.7) * (6 + r * 3);
+          ctx.beginPath(); ctx.arc(x, y, dotR, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(GOLD_A, 0.08 + depth * 0.42);
+          ctx.fill();
+        }
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    /* ---- LAYER 3: glossy DNA double helix ---- */
+    function drawHelix(now) {
+      const t = now * 0.00042;
       const scrollY = window.scrollY;
-      const R = Math.min(W * 0.13, 150);        // helix radius
-      const pitch = 240;                        // px per full turn
-      const step = 15;                          // sample spacing along axis
+      const R = Math.min(W * 0.14, 155);
+      const pitch = 250, step = 12;
       const centerY = H / 2;
-      const anchorX = W * 0.30;                  // where the diagonal enters at top
-      const swayAmp = Math.min(W * 0.055, 70);   // "gravity" sway amplitude
-      const swayFreq = 0.006;
+      const anchorX = W * 0.32;
+      const swayAmp = Math.min(W * 0.05, 64), swayFreq = 0.006;
 
-      ctx.clearRect(0, 0, W, H);
-      const items = [];
+      const aStart = Math.floor((-200 / DIRY) / step) * step;
+      const aEnd = (H + 200) / DIRY;
 
-      // map screen coverage to along-axis range a
-      const aStart = Math.floor((-160 / DIRY) / step) * step;
-      const aEnd = (H + 160) / DIRY;
+      const SA = [], SB = [], RUNG = [];
       let k = 0;
       for (let a = aStart; a < aEnd; a += step) {
-        const p = a + scrollY;                          // backbone param (twist continuity)
+        const p = a + scrollY;
         const sway = swayAmp * Math.sin(a * swayFreq + t * 1.6);
-        const axX = anchorX + a * DIRX + sway;          // axis centre for this sample
-        const axY = a * DIRY;
+        const axX = anchorX + a * DIRX + sway, axY = a * DIRY;
         const ang = (p / pitch) * Math.PI * 2 + t;
         const ca = Math.cos(ang), cb = Math.cos(ang + Math.PI);
-        items.push({ type: 'dot', x: axX + ca * R * PERPX, y: axY + ca * R * PERPY, z: Math.sin(ang), c: STRAND_A });
-        items.push({ type: 'dot', x: axX + cb * R * PERPX, y: axY + cb * R * PERPY, z: Math.sin(ang + Math.PI), c: STRAND_B });
-        if (k % 3 === 0) items.push({
-          type: 'rung',
-          x1: axX + ca * R * PERPX, y1: axY + ca * R * PERPY,
-          x2: axX + cb * R * PERPX, y2: axY + cb * R * PERPY,
-          z: (Math.sin(ang) + Math.sin(ang + Math.PI)) / 2
-        });
+        const pa = { x: axX + ca * R * PERPX, y: axY + ca * R * PERPY, z: Math.sin(ang) };
+        const pb = { x: axX + cb * R * PERPX, y: axY + cb * R * PERPY, z: Math.sin(ang + Math.PI) };
+        SA.push(pa); SB.push(pb);
+        if (k % 2 === 0) RUNG.push([pa, pb]);
         k++;
       }
+
+      // base-pair rungs (behind)
+      for (const [a, b] of RUNG) {
+        const d = ((a.z + b.z) / 2 + 1) / 2;
+        ctx.strokeStyle = rgba(GOLD_B, 0.05 + d * 0.2);
+        ctx.lineWidth = 0.6 + d * 1.3;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+
+      function ribbon(S, col) {
+        // soft bloom (whole path, one shadowed stroke)
+        ctx.beginPath(); ctx.moveTo(S[0].x, S[0].y);
+        for (let i = 1; i < S.length; i++) ctx.lineTo(S[i].x, S[i].y);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.shadowColor = rgba(col, 0.7); ctx.shadowBlur = 18;
+        ctx.strokeStyle = rgba(col, 0.22); ctx.lineWidth = 3; ctx.stroke();
+        ctx.shadowBlur = 0;
+        // glossy tube: wide translucent + bright core per segment (depth-scaled)
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 1; i < S.length; i++) {
+          const p0 = S[i - 1], p1 = S[i];
+          const d = ((p0.z + p1.z) / 2 + 1) / 2;
+          ctx.strokeStyle = rgba(col, 0.05 + d * 0.13); ctx.lineWidth = 6 + d * 11;
+          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+          ctx.strokeStyle = rgba(col, 0.3 + d * 0.5); ctx.lineWidth = 1.4 + d * 3;
+          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+          if (d > 0.62) {   // specular highlight on the near-facing side
+            ctx.strokeStyle = rgba(GOLD_HI, (d - 0.62) * 1.7); ctx.lineWidth = 1 + (d - 0.62) * 3;
+            ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+          }
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
+      ribbon(SB, GOLD_B);
+      ribbon(SA, GOLD_A);
+
       // content nodes
-      nodePs.forEach((np, i) => {
+      nodePs.forEach(np => {
         const a = np - scrollY;
         if (a < aStart - 60 || a > aEnd + 60) return;
         const sway = swayAmp * Math.sin(a * swayFreq + t * 1.6);
@@ -494,44 +590,70 @@
         const ang = (np / pitch) * Math.PI * 2 + t;
         const ca = Math.cos(ang);
         const x = axX + ca * R * PERPX, y = axY + ca * R * PERPY, z = Math.sin(ang);
+        const d = (z + 1) / 2;
         const active = Math.abs(y - centerY) < H * 0.24;
-        items.push({ type: 'node', x, y, z, active, i });
-      });
-
-      items.sort((a, b) => a.z - b.z);          // painter's: far → near
-
-      items.forEach(it => {
-        const d = (it.z + 1) / 2;                // 0 far, 1 near
-        if (it.type === 'rung') {
-          const g = ctx.createLinearGradient(it.x1, it.y1, it.x2, it.y2);
-          g.addColorStop(0, rgba(STRAND_A, 0.05 + d * 0.2));
-          g.addColorStop(1, rgba(STRAND_B, 0.05 + d * 0.2));
-          ctx.strokeStyle = g; ctx.lineWidth = 0.6 + d * 1.5;
-          ctx.beginPath(); ctx.moveTo(it.x1, it.y1); ctx.lineTo(it.x2, it.y2); ctx.stroke();
-        } else if (it.type === 'dot') {
-          const rad = 1.6 + d * 3;
-          ctx.beginPath(); ctx.arc(it.x, it.y, rad, 0, Math.PI * 2);
-          ctx.fillStyle = rgba(it.c, 0.18 + d * 0.72);
-          ctx.shadowColor = rgba(it.c, 0.55); ctx.shadowBlur = d * 12;
-          ctx.fill(); ctx.shadowBlur = 0;
-        } else {
-          // content node
-          const pulse = it.active ? Math.sin(now * 0.005) * 1.6 : 0;
-          const rad = 4 + d * 5 + (it.active ? 4 + pulse : 0);
-          const col = it.active ? [255, 226, 138] : [150, 122, 60];
-          ctx.beginPath(); ctx.arc(it.x, it.y, rad, 0, Math.PI * 2);
-          ctx.fillStyle = rgba(col, it.active ? 0.96 : 0.32 + d * 0.4);
-          ctx.shadowColor = rgba(col, it.active ? 0.95 : 0.4);
-          ctx.shadowBlur = it.active ? 28 : d * 8;
-          ctx.fill();
-          if (it.active) {
-            ctx.beginPath(); ctx.arc(it.x, it.y, rad + 6, 0, Math.PI * 2);
-            ctx.strokeStyle = rgba(col, 0.45); ctx.lineWidth = 1.4; ctx.stroke();
-          }
-          ctx.shadowBlur = 0;
+        const pulse = active ? Math.sin(now * 0.005) * 1.8 : 0;
+        const rad = 5 + d * 5 + (active ? 5 + pulse : 0);
+        const col = active ? [255, 234, 158] : [190, 150, 70];
+        ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(col, active ? 0.98 : 0.4 + d * 0.4);
+        ctx.shadowColor = rgba(col, active ? 0.95 : 0.5);
+        ctx.shadowBlur = active ? 30 : 8 + d * 8;
+        ctx.fill();
+        if (active) {
+          ctx.beginPath(); ctx.arc(x, y, rad + 7, 0, Math.PI * 2);
+          ctx.strokeStyle = rgba(col, 0.45); ctx.lineWidth = 1.5; ctx.stroke();
         }
+        ctx.shadowBlur = 0;
       });
+    }
 
+    /* ---- LAYER 4: ball-and-stick molecule (hero corner) ---- */
+    function drawMolecule(now) {
+      const op = Math.max(0, 1 - window.scrollY / (H * 0.75));
+      if (op < 0.03) return;
+      const t = now * 0.0004;
+      const cx = W * 0.17, cy = H * 0.36 + Math.sin(now * 0.0009) * 8;
+      const s = Math.min(W, H) * 0.0011 + 0.5;
+      ctx.globalAlpha = op;
+
+      const atoms = [{ x: 0, y: 0, z: 0.6, R: 13 }];
+      const N = 5, dist = 64 * s;
+      for (let i = 0; i < N; i++) {
+        const ang = t + i * (Math.PI * 2 / N);
+        atoms.push({ x: Math.cos(ang) * dist, y: Math.sin(ang) * dist * 0.62, z: Math.sin(ang), R: 8 });
+      }
+      // bonds centre -> outer
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 1; i < atoms.length; i++) {
+        const a = atoms[0], b = atoms[i];
+        ctx.strokeStyle = rgba(GOLD_A, 0.28); ctx.lineWidth = 3.4 * s;
+        ctx.beginPath(); ctx.moveTo(cx + a.x, cy + a.y); ctx.lineTo(cx + b.x, cy + b.y); ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      // atoms far -> near
+      atoms.slice().sort((a, b) => a.z - b.z).forEach(at => {
+        const d = (at.z + 1) / 2;
+        const rr = at.R * s * (0.8 + d * 0.5);
+        const px = cx + at.x, py = cy + at.y;
+        const g = ctx.createRadialGradient(px - rr * 0.35, py - rr * 0.35, rr * 0.1, px, py, rr);
+        g.addColorStop(0, rgba(GOLD_HI, 0.95));
+        g.addColorStop(0.4, rgba(GOLD_A, 0.9));
+        g.addColorStop(1, 'rgba(70,44,10,0.85)');
+        ctx.fillStyle = g;
+        ctx.shadowColor = rgba(GOLD_A, 0.6); ctx.shadowBlur = 10 * d;
+        ctx.beginPath(); ctx.arc(px, py, rr, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+      ctx.globalAlpha = 1;
+    }
+
+    function draw(now) {
+      ctx.clearRect(0, 0, W, H);
+      drawMesh();
+      drawWave(now);
+      drawHelix(now);
+      drawMolecule(now);
       requestAnimationFrame(draw);
     }
 
