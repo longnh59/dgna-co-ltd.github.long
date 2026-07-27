@@ -33,19 +33,19 @@
       font-weight: 800;
     }
 
-    /* ===== TOKENS ===== */
+    /* ===== TOKENS — gold / black ===== */
     :root {
-      --bg: #05070e;
-      --bg2: #0a1020;
-      --blue: #38bdf8;
-      --cyan: #22d3ee;
-      --teal: #2dd4bf;
+      --bg: #050403;
+      --bg2: #0d0a04;
+      --blue: #ffd24a;   /* bright gold  */
+      --cyan: #fbbf24;   /* gold         */
+      --teal: #d9a441;   /* amber gold   */
       --gold: #fbbf24;
-      --violet: #818cf8;
-      --text: #e6edff;
-      --muted: #90a0c4;
-      --line: rgba(120, 150, 220, 0.14);
-      --card: rgba(15, 22, 42, 0.72);
+      --violet: #b8860b; /* deep gold    */
+      --text: #f6edd6;
+      --muted: #a2916b;
+      --line: rgba(251, 191, 36, 0.16);
+      --card: rgba(20, 15, 5, 0.74);
       --radius: 18px;
     }
 
@@ -74,8 +74,8 @@
     .bg-orb {
       position: fixed; border-radius: 50%; filter: blur(90px); z-index: 0; opacity: .5; pointer-events: none;
     }
-    .orb-1 { width: 480px; height: 480px; background: rgba(56, 189, 248, .18); top: -120px; left: -120px; }
-    .orb-2 { width: 520px; height: 520px; background: rgba(45, 212, 191, .14); bottom: -160px; right: -140px; }
+    .orb-1 { width: 480px; height: 480px; background: rgba(251, 191, 36, .16); top: -120px; left: -120px; }
+    .orb-2 { width: 520px; height: 520px; background: rgba(217, 160, 60, .12); bottom: -160px; right: -140px; }
 
     /* helix canvas fixed behind content */
     #helix {
@@ -441,41 +441,60 @@
     window.addEventListener('resize', resize);
     window.addEventListener('load', computeNodes);
 
-    const STRAND_A = [56, 189, 248];   // blue
-    const STRAND_B = [45, 212, 191];   // teal
+    const STRAND_A = [255, 210, 74];   // bright gold
+    const STRAND_B = [200, 150, 55];   // deep amber gold
     function rgba(c, a) { return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+
+    // Diagonal axis (tilted from vertical) + gravity sway
+    const THETA = 24 * Math.PI / 180;              // tilt angle
+    const DIRX = Math.sin(THETA), DIRY = Math.cos(THETA);   // axis direction (down-right)
+    const PERPX = Math.cos(THETA), PERPY = -Math.sin(THETA); // perpendicular (strand spread)
 
     function draw(now) {
       const t = now * 0.00042;                 // continuous rotation
       const scrollY = window.scrollY;
-      const cx = W / 2;
-      const R = Math.min(W * 0.15, 165);        // helix radius
+      const R = Math.min(W * 0.13, 150);        // helix radius
       const pitch = 240;                        // px per full turn
-      const step = 15;                          // sample spacing along backbone
+      const step = 15;                          // sample spacing along axis
       const centerY = H / 2;
+      const anchorX = W * 0.30;                  // where the diagonal enters at top
+      const swayAmp = Math.min(W * 0.055, 70);   // "gravity" sway amplitude
+      const swayFreq = 0.006;
 
       ctx.clearRect(0, 0, W, H);
       const items = [];
 
-      const startP = Math.floor((scrollY - 140) / step) * step;
-      const endP = scrollY + H + 140;
+      // map screen coverage to along-axis range a
+      const aStart = Math.floor((-160 / DIRY) / step) * step;
+      const aEnd = (H + 160) / DIRY;
       let k = 0;
-      for (let p = startP; p < endP; p += step) {
+      for (let a = aStart; a < aEnd; a += step) {
+        const p = a + scrollY;                          // backbone param (twist continuity)
+        const sway = swayAmp * Math.sin(a * swayFreq + t * 1.6);
+        const axX = anchorX + a * DIRX + sway;          // axis centre for this sample
+        const axY = a * DIRY;
         const ang = (p / pitch) * Math.PI * 2 + t;
-        const ax = cx + R * Math.cos(ang), az = Math.sin(ang);
-        const bx = cx + R * Math.cos(ang + Math.PI), bz = Math.sin(ang + Math.PI);
-        const y = p - scrollY;
-        items.push({ type: 'dot', x: ax, y, z: az, c: STRAND_A });
-        items.push({ type: 'dot', x: bx, y, z: bz, c: STRAND_B });
-        if (k % 3 === 0) items.push({ type: 'rung', x1: ax, x2: bx, y, z: (az + bz) / 2 });
+        const ca = Math.cos(ang), cb = Math.cos(ang + Math.PI);
+        items.push({ type: 'dot', x: axX + ca * R * PERPX, y: axY + ca * R * PERPY, z: Math.sin(ang), c: STRAND_A });
+        items.push({ type: 'dot', x: axX + cb * R * PERPX, y: axY + cb * R * PERPY, z: Math.sin(ang + Math.PI), c: STRAND_B });
+        if (k % 3 === 0) items.push({
+          type: 'rung',
+          x1: axX + ca * R * PERPX, y1: axY + ca * R * PERPY,
+          x2: axX + cb * R * PERPX, y2: axY + cb * R * PERPY,
+          z: (Math.sin(ang) + Math.sin(ang + Math.PI)) / 2
+        });
         k++;
       }
       // content nodes
       nodePs.forEach((np, i) => {
+        const a = np - scrollY;
+        if (a < aStart - 60 || a > aEnd + 60) return;
+        const sway = swayAmp * Math.sin(a * swayFreq + t * 1.6);
+        const axX = anchorX + a * DIRX + sway, axY = a * DIRY;
         const ang = (np / pitch) * Math.PI * 2 + t;
-        const x = cx + R * Math.cos(ang), z = Math.sin(ang), y = np - scrollY;
-        if (y < -160 || y > H + 160) return;
-        const active = Math.abs(y - centerY) < H * 0.26;
+        const ca = Math.cos(ang);
+        const x = axX + ca * R * PERPX, y = axY + ca * R * PERPY, z = Math.sin(ang);
+        const active = Math.abs(y - centerY) < H * 0.24;
         items.push({ type: 'node', x, y, z, active, i });
       });
 
@@ -484,30 +503,30 @@
       items.forEach(it => {
         const d = (it.z + 1) / 2;                // 0 far, 1 near
         if (it.type === 'rung') {
-          const g = ctx.createLinearGradient(it.x1, it.y, it.x2, it.y);
-          g.addColorStop(0, rgba(STRAND_A, 0.05 + d * 0.18));
-          g.addColorStop(1, rgba(STRAND_B, 0.05 + d * 0.18));
-          ctx.strokeStyle = g; ctx.lineWidth = 0.6 + d * 1.4;
-          ctx.beginPath(); ctx.moveTo(it.x1, it.y); ctx.lineTo(it.x2, it.y); ctx.stroke();
+          const g = ctx.createLinearGradient(it.x1, it.y1, it.x2, it.y2);
+          g.addColorStop(0, rgba(STRAND_A, 0.05 + d * 0.2));
+          g.addColorStop(1, rgba(STRAND_B, 0.05 + d * 0.2));
+          ctx.strokeStyle = g; ctx.lineWidth = 0.6 + d * 1.5;
+          ctx.beginPath(); ctx.moveTo(it.x1, it.y1); ctx.lineTo(it.x2, it.y2); ctx.stroke();
         } else if (it.type === 'dot') {
           const rad = 1.6 + d * 3;
           ctx.beginPath(); ctx.arc(it.x, it.y, rad, 0, Math.PI * 2);
-          ctx.fillStyle = rgba(it.c, 0.18 + d * 0.7);
-          ctx.shadowColor = rgba(it.c, 0.5); ctx.shadowBlur = d * 10;
+          ctx.fillStyle = rgba(it.c, 0.18 + d * 0.72);
+          ctx.shadowColor = rgba(it.c, 0.55); ctx.shadowBlur = d * 12;
           ctx.fill(); ctx.shadowBlur = 0;
         } else {
           // content node
           const pulse = it.active ? Math.sin(now * 0.005) * 1.6 : 0;
           const rad = 4 + d * 5 + (it.active ? 4 + pulse : 0);
-          const col = it.active ? [251, 191, 36] : [130, 160, 220];
+          const col = it.active ? [255, 226, 138] : [150, 122, 60];
           ctx.beginPath(); ctx.arc(it.x, it.y, rad, 0, Math.PI * 2);
-          ctx.fillStyle = rgba(col, it.active ? 0.95 : 0.35 + d * 0.4);
-          ctx.shadowColor = rgba(col, it.active ? 0.9 : 0.4);
-          ctx.shadowBlur = it.active ? 26 : d * 8;
+          ctx.fillStyle = rgba(col, it.active ? 0.96 : 0.32 + d * 0.4);
+          ctx.shadowColor = rgba(col, it.active ? 0.95 : 0.4);
+          ctx.shadowBlur = it.active ? 28 : d * 8;
           ctx.fill();
           if (it.active) {
             ctx.beginPath(); ctx.arc(it.x, it.y, rad + 6, 0, Math.PI * 2);
-            ctx.strokeStyle = rgba(col, 0.4); ctx.lineWidth = 1.4; ctx.stroke();
+            ctx.strokeStyle = rgba(col, 0.45); ctx.lineWidth = 1.4; ctx.stroke();
           }
           ctx.shadowBlur = 0;
         }
