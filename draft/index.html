@@ -24,6 +24,7 @@
       --gold:#fbbf24; --gold-hi:#ffd86b; --gold-dim:#b58f3c;
       --text:#f6efdd; --muted:#a79768;
       --line:rgba(251,191,36,.15); --line-2:rgba(251,191,36,.28);
+      --sick:#e0574a;                       /* semantic only — never an accent */
       --r:16px; --r-lg:22px;
       --sp:clamp(20px,5vw,64px);
     }
@@ -147,6 +148,31 @@
     .list li { display:flex; gap:9px; font-size:14px; color:var(--muted); }
     .list li::before { content:'✓'; color:var(--gold); font-weight:700; flex-shrink:0; }
 
+    /* ===== VIRUS STORY ===== */
+    .phase { display:flex; align-items:baseline; gap:12px; margin:34px 0 16px; }
+    .phase h3 { font-size:15px; font-weight:600; letter-spacing:.3px; }
+    .phase span { font-size:12.5px; color:var(--muted); }
+    .phase .bar { flex:1; height:1px; }
+    .phase-ill h3 { color:var(--sick); }
+    .phase-ill .bar { background:linear-gradient(90deg,rgba(224,87,74,.5),transparent); }
+    .phase-well h3 { color:var(--gold-hi); }
+    .phase-well .bar { background:linear-gradient(90deg,rgba(251,191,36,.5),transparent); }
+    .stage { position:relative; }
+    .stage .n {
+      font-family:ui-monospace,monospace; font-size:11.5px; letter-spacing:1px;
+      padding:3px 9px; border-radius:7px; display:inline-block; margin-bottom:11px;
+    }
+    .stage.ill .n { color:var(--sick); border:1px solid rgba(224,87,74,.35); background:rgba(224,87,74,.07); }
+    .stage.well .n { color:var(--gold); border:1px solid var(--line-2); background:rgba(251,191,36,.06); }
+    .stage.ill { border-color:rgba(224,87,74,.22); }
+    .stage.ill:hover { border-color:rgba(224,87,74,.4); }
+    .stage p em { font-style:normal; color:var(--text); font-weight:500; }
+    .stage .maps {
+      margin-top:13px; padding-top:11px; border-top:1px solid var(--line);
+      font-size:12.5px; color:var(--gold-dim);
+    }
+    .disclaimer { margin-top:18px; font-size:13px; color:var(--muted); font-style:italic; }
+
     /* course card */
     .course { display:flex; flex-direction:column; }
     .course .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
@@ -268,6 +294,71 @@
         <div class="card rv dna-letter"><b>N</b><div><h3>Network</h3><p>Kết nối dữ liệu xuyên phòng ban, phá bỏ ốc đảo thông tin.</p></div></div>
         <div class="card rv dna-letter"><b>A</b><div><h3>Architecture</h3><p>Kiến trúc bền vững, mở rộng được theo quy mô doanh nghiệp.</p></div></div>
       </div>
+    </div>
+  </section>
+
+  <!-- VIRUS STORY -->
+  <section class="band" id="virus" data-node data-virus>
+    <div class="wrap">
+      <div class="sec-head rv">
+        <span class="sec-label">Bệnh án dữ liệu</span>
+        <h2>Một bản ghi sai <em>lây</em> như thế nào</h2>
+        <p>Dữ liệu sai không nằm yên. Giống virus, nó dùng chính bộ máy của tổ chức để tự nhân bản —
+          và lan nhanh hơn tốc độ bạn phát hiện ra nó.</p>
+      </div>
+
+      <div class="phase phase-ill">
+        <h3>Giai đoạn lây nhiễm</h3><span>khi chưa có hệ miễn dịch</span><div class="bar"></div>
+      </div>
+      <div class="grid g3">
+        <div class="card stage ill rv">
+          <span class="n">01 · ĐỘT BIẾN</span>
+          <h3>Một dòng lọt vào</h3>
+          <p>Một khách hàng bị nhập trùng dưới hai mã khác nhau. <em>Chỉ một dòng.</em>
+            Không cảnh báo, không ai nhận ra — vì bản thân nó trông hoàn toàn hợp lệ.</p>
+        </div>
+        <div class="card stage ill rv">
+          <span class="n">02 · NHÂN BẢN</span>
+          <h3>Sai số tự sao chép</h3>
+          <p>CRM đồng bộ sang kho dữ liệu, kho dữ liệu nuôi báo cáo, báo cáo nuôi mô hình.
+            Sau một quý, <em>bản ghi sai đã nằm trong hàng chục hệ thống và báo cáo</em> — mỗi nơi một bản sao.</p>
+        </div>
+        <div class="card stage ill rv">
+          <span class="n">03 · BIỂU HIỆN</span>
+          <h3>Sai số thành quyết định</h3>
+          <p>Doanh thu bị đếm hai lần. Tập khách hàng bị chia sai. Kế hoạch tồn kho lệch.
+            <em>Không ai nghi ngờ dữ liệu</em> — người ta nghi ngờ lẫn nhau.</p>
+        </div>
+      </div>
+
+      <div class="phase phase-well">
+        <h3>Giai đoạn miễn dịch</h3><span>khi tổ chức có đề kháng dữ liệu</span><div class="bar"></div>
+      </div>
+      <div class="grid g3">
+        <div class="card stage well rv">
+          <span class="n">04 · KHÁNG THỂ</span>
+          <h3>Phát hiện tại chỗ</h3>
+          <p>Luật chất lượng dữ liệu nhận diện bất thường <em>ngay khi bản ghi được tạo</em>,
+            chứ không phải sau một quý khi báo cáo đã lệch.</p>
+          <div class="maps">→ Data Quality · giám sát &amp; cảnh báo</div>
+        </div>
+        <div class="card stage well rv">
+          <span class="n">05 · CÁCH LY</span>
+          <h3>Khoanh vùng &amp; truy nguồn</h3>
+          <p>Quy trình xử lý sự cố dữ liệu: khoanh vùng ảnh hưởng, lần theo lineage về tận nguồn,
+            <em>sửa gốc thay vì vá từng báo cáo.</em></p>
+          <div class="maps">→ Issue Management · Data Lineage</div>
+        </div>
+        <div class="card stage well rv">
+          <span class="n">06 · TRÍ NHỚ</span>
+          <h3>Tổ chức ghi nhớ</h3>
+          <p>Định nghĩa đúng được ghi vào từ điển dữ liệu và khung quản trị.
+            <em>Lần sau tổ chức tự nhận ra</em> — đề kháng nằm trong quy trình, không nằm trong trí nhớ một người.</p>
+          <div class="maps">→ Từ điển dữ liệu · Khung quản trị</div>
+        </div>
+      </div>
+
+      <p class="disclaimer rv">Đây là kịch bản minh họa cho một dạng sự cố phổ biến, không phải hồ sơ của khách hàng cụ thể.</p>
     </div>
   </section>
 
@@ -568,11 +659,23 @@
       A1 = (H + 220) / DIRY;
       measure();
     }
+    let virusTop = 0, virusH = 1;
     function measure() {
       nodePs = [...document.querySelectorAll('[data-node]')].map(el => {
         const r = el.getBoundingClientRect();
         return r.top + scrollY + r.height / 2;
       });
+      const v = document.querySelector('[data-virus]');
+      if (v) { const r = v.getBoundingClientRect(); virusTop = r.top + scrollY; virusH = r.height; }
+    }
+    /* 0 healthy -> 1 fully infected. Climbs through the infection stages,
+       then falls back to 0 as the immunity stages scroll past. */
+    function infectionAt(sy) {
+      const u = (sy + H * 0.5 - virusTop) / virusH;
+      if (u <= 0.05 || u >= 0.95) return 0;
+      if (u < 0.42) return (u - 0.05) / 0.37;
+      if (u < 0.52) return 1;
+      return Math.max(0, 1 - (u - 0.52) / 0.36);
     }
     addEventListener('resize', resize);
     addEventListener('load', measure);
@@ -634,12 +737,15 @@
       return R0 * (0.86 + 0.24 * Math.sin(p * 0.0058 + t * 0.7) + 0.11 * Math.sin(p * 0.0113 - t));
     }
     const GOLD_DEEP = [104, 64, 14];
+    const SICK = [224, 87, 74], SICK_DEEP = [92, 26, 22];
+    let infect = 0;                                   // set each frame from scroll
     const mix = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
     // deep bronze when far, bright gold near, white-hot on the closest pass
     function shade(sc, warm) {
       const f = Math.max(0, Math.min(1, (sc - 0.72) / 0.72));
-      const base = mix(GOLD_DEEP, warm, f);
-      return sc > 1.22 ? mix(base, GOLD_HI, Math.min((sc - 1.22) / 0.4, 0.75)) : base;
+      let base = mix(GOLD_DEEP, warm, f);
+      if (sc > 1.22) base = mix(base, GOLD_HI, Math.min((sc - 1.22) / 0.4, 0.75));
+      return infect > 0.01 ? mix(base, mix(SICK_DEEP, SICK, f), infect) : base;
     }
 
     /* energy packets running down the strand — data flowing through the helix */
@@ -666,6 +772,7 @@
       const t = now * 0.00017;
       physics(t);
       const sy = sEase;
+      infect = infectionAt(sy);
       // idles at ~15s per revolution; scrolling turns it further on top
       const spin = now * 0.00042 + sy * 0.0016;
       const step = 9, cY = H / 2;
@@ -683,7 +790,14 @@
       const SA = [], SB = [];
       for (let a = aStart; a < aEnd; a += step) {
         const p = a + sy, ang = twistAt(p, t, spin);
-        SA.push(pt(a, p, ang)); SB.push(pt(a, p, ang + Math.PI));
+        const A = pt(a, p, ang), B = pt(a, p, ang + Math.PI);
+        if (infect > 0.01) {                          // the strand mutates out of true
+          const m = infect * infect * 16;
+          const w1 = Math.sin(p * 0.29 + now * 0.004), w2 = Math.cos(p * 0.41 - now * 0.003);
+          A.x += w1 * m; A.y += w2 * m * 0.6;
+          B.x -= w2 * m; B.y -= w1 * m * 0.6;
+        }
+        SA.push(A); SB.push(B);
       }
 
       // energy packets travel down the strands and light the segments they cross
@@ -777,6 +891,8 @@
       for (let i = 0; i < N; i += 2) {
         const p = SA[i], q = SB[i];
         const pp = p.p;
+        // infection breaks base pairs — the ladder starts coming apart
+        if (infect > 0.15 && Math.abs(Math.sin(pp * 0.147 + 0.6)) < infect * 0.55) continue;
         const j = 0.55 + 0.7 * Math.abs(Math.sin(pp * 0.083) * Math.cos(pp * 0.191 + 1.3));
         const SEG = 3, PL = [];
         for (let s2 = 0; s2 <= SEG; s2++) {
@@ -825,7 +941,8 @@
       for (let b = 0; b < NB; b++) {
         const arr = db[b];
         if (!arr.length) continue;
-        ctx.fillStyle = rgba(GOLD_HI, b / (NB - 1) * MAXA * 1.5);
+        ctx.fillStyle = rgba(infect > 0.01 ? mix(GOLD_HI, SICK, infect * 0.85) : GOLD_HI,
+                             b / (NB - 1) * MAXA * 1.5);
         ctx.beginPath();
         for (let i = 0; i < arr.length; i += 3) {
           ctx.moveTo(arr[i] + arr[i + 2], arr[i + 1]);
