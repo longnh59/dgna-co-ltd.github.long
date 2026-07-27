@@ -443,8 +443,8 @@
     let nodePs = [];
     let mesh = [];
 
-    const GOLD_A = [255, 214, 92];    // bright gold strand
-    const GOLD_B = [204, 148, 52];    // deep amber strand
+    const GOLD_A = [255, 214, 92];    // bright gold strand (front-reading)
+    const GOLD_B = [176, 122, 38];    // deep amber strand (back-reading)
     const GOLD_HI = [255, 244, 200];  // specular highlight
     function rgba(c, a) { return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
 
@@ -478,7 +478,7 @@
     window.addEventListener('load', computeNodes);
 
     // diagonal axis + gravity sway
-    const THETA = 24 * Math.PI / 180;
+    const THETA = 22 * Math.PI / 180;
     const DIRX = Math.sin(THETA), DIRY = Math.cos(THETA);
     const PERPX = Math.cos(THETA), PERPY = -Math.sin(THETA);
 
@@ -531,7 +531,7 @@
     }
 
     /* ---- LAYER 3: free-form 3D particle DNA (right side, clear of text) ---- */
-    const RIGHT_BIAS = 0.70;   // horizontal anchor as fraction of width (keeps DNA off the text)
+    const RIGHT_BIAS = 0.80;   // horizontal anchor as fraction of width (keeps DNA off the text)
     const FOCAL = 600;         // perspective focal length (px) — shorter = stronger 3D
 
     // deterministic per-particle noise (stable jitter)
@@ -539,7 +539,7 @@
 
     // organic 3D axis: layered incommensurate sines in x, y and depth z
     function axisAt(a, t) {
-      let x = W * RIGHT_BIAS + a * DIRX;
+      let x = W * RIGHT_BIAS + (a - H * 0.5) * DIRX;   // drift centred on the viewport
       let y = a * DIRY;
       x += Math.sin(a * 0.0042 + t * 1.3) * Math.min(W * 0.026, 34)
          + Math.sin(a * 0.00127 - t * 0.7) * Math.min(W * 0.05, 62);
@@ -550,20 +550,20 @@
     }
     // variable twist: gentle, with tight/loose zones that slowly migrate (no fixed law)
     function twistAt(p, t) {
-      return (p / 430) * Math.PI * 2 + t
+      return (p / 360) * Math.PI * 2 + t     // pitch ≈ 1.4 x diameter, measured off the reference
            + 0.32 * Math.sin(p * 0.0011 + t * 0.5)
            + 0.13 * Math.sin(p * 0.0037 - t * 0.9);
     }
     // subtle breathing radius along the strand
     function radiusAt(a, t) {
-      const R0 = Math.min(W * 0.115, 138);
+      const R0 = Math.min(W * 0.105, 132);
       return R0 * (0.93 + 0.06 * Math.sin(a * 0.0021 + t * 0.7) + 0.025 * Math.sin(a * 0.0064 - t));
     }
 
     function drawHelix(now) {
       const t = now * 0.00017;                 // slow, stately drift
       const scrollY = window.scrollY;
-      const step = 8;
+      const step = 9;
       const centerY = H / 2;
 
       const aStart = Math.floor((-220 / DIRY) / step) * step;
@@ -602,72 +602,102 @@
         segs.push({ kind: 'bone', p: SA[i - 1], q: SA[i], c: GOLD_A, z: (SA[i - 1].z + SA[i].z) / 2 });
         segs.push({ kind: 'bone', p: SB[i - 1], q: SB[i], c: GOLD_B, z: (SB[i - 1].z + SB[i].z) / 2 });
       }
-      for (let i = 0; i < SA.length; i += 2) {         // dense ladder: a rung every ~16px
-        segs.push({ kind: 'rung', p: SA[i], q: SB[i], z: (SA[i].z + SB[i].z) / 2 });
+      for (let i = 0; i < SA.length; i += 2) {         // ~10 rungs per half turn
+        // alternate which backbone the wedge is broad at -> low-poly fan with
+        // leaf-shaped dark gaps, as in the reference
+        segs.push({ kind: 'rung', p: SA[i], q: SB[i], z: (SA[i].z + SB[i].z) / 2, flip: (i >> 1) & 1 });
       }
       segs.sort((m, n) => n.z - m.z);                  // far -> near
 
-      ctx.lineCap = 'round';
-      ctx.globalCompositeOperation = 'lighter';
+      // depth ramps: ribbons stay solid, rungs taper hard (low-poly wedge look)
+      const boneW = s => 1.0 + 5.0 * Math.min(s * s, 2.6);
+      const rungH = s => 0.25 + 3.5 * Math.min(s * s * s, 3.3);
+
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      // painter's pass: bloom then solid body per segment, so near strands
+      // genuinely occlude far ones instead of adding through them
       for (const s of segs) {
         const sc = (s.p.scale + s.q.scale) / 2;
-        // quartic depth curve => far pass almost fades out, near pass blazes
-        const dp = Math.min(Math.pow(sc, 4), 4.0);
+        const dp = Math.min(sc * sc, 2.6);
         if (s.kind === 'bone') {
-          // soft outer glow, swells with proximity
-          ctx.strokeStyle = rgba(s.c, 0.02 + 0.06 * dp); ctx.lineWidth = 4 + 10 * dp;
+          const w = boneW(sc);
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.strokeStyle = rgba(s.c, 0.022 + 0.042 * dp); ctx.lineWidth = w * 2.6;
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          // main line: near-invisible hairline far away -> bold rope up close
-          ctx.strokeStyle = rgba(s.c, Math.min(0.05 + 0.24 * dp, 0.95));
-          ctx.lineWidth = 0.4 + 2.2 * dp;
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = rgba(s.c, Math.min(0.34 + 0.26 * dp, 0.96)); ctx.lineWidth = w;
           ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          // white-hot core on the nearest passes
-          if (dp > 1.5) {
-            ctx.strokeStyle = rgba(GOLD_HI, (dp - 1.5) * 0.28);
-            ctx.lineWidth = 0.5 + (dp - 1.5) * 1.5;
+          if (dp > 1.45) {                             // specular core on near passes
+            ctx.strokeStyle = rgba(GOLD_HI, Math.min((dp - 1.45) * 0.62, 0.7));
+            ctx.lineWidth = w * 0.34;
             ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
           }
         } else {
-          // short connector between the two backbones
-          const g = ctx.createLinearGradient(s.p.x, s.p.y, s.q.x, s.q.y);
-          g.addColorStop(0, rgba(GOLD_A, 0.05 + 0.15 * dp));
-          g.addColorStop(0.5, rgba(GOLD_B, 0.025 + 0.075 * dp));
-          g.addColorStop(1, rgba(GOLD_B, 0.05 + 0.15 * dp));
-          ctx.strokeStyle = g; ctx.lineWidth = 0.4 + 0.7 * dp;
-          ctx.beginPath(); ctx.moveTo(s.p.x, s.p.y); ctx.lineTo(s.q.x, s.q.y); ctx.stroke();
-          // tiny beads where the rung meets each backbone
-          for (const e of [s.p, s.q]) {
-            ctx.beginPath(); ctx.arc(e.x, e.y, 0.7 + 1.1 * dp, 0, Math.PI * 2);
-            ctx.fillStyle = rgba(GOLD_A, 0.10 + 0.24 * dp); ctx.fill();
-          }
+          // tapered wedge: half-width at each end follows that end's depth
+          const p = s.p, q = s.q;
+          let dx = q.x - p.x, dy = q.y - p.y;
+          const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+          const nx = -dy, ny = dx;
+          const hp = rungH(p.scale) * (s.flip ? 0.12 : 1);
+          const hq = rungH(q.scale) * (s.flip ? 1 : 0.12);
+          const g = ctx.createLinearGradient(p.x, p.y, q.x, q.y);
+          g.addColorStop(0, rgba(GOLD_A, Math.min(0.16 + 0.26 * p.scale * p.scale, 0.88)));
+          g.addColorStop(1, rgba(GOLD_B, Math.min(0.16 + 0.26 * q.scale * q.scale, 0.88)));
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.moveTo(p.x + nx * hp, p.y + ny * hp);
+          ctx.lineTo(q.x + nx * hq, q.y + ny * hq);
+          ctx.lineTo(q.x - nx * hq, q.y - ny * hq);
+          ctx.lineTo(p.x - nx * hp, p.y - ny * hp);
+          ctx.closePath(); ctx.fill();
         }
       }
-      // sparkling flares along the strands (lens glints on near passes)
+
+      ctx.globalCompositeOperation = 'lighter';
+      // bright vertex beads where each rung meets a backbone
+      for (let i = 0; i < SA.length; i += 2) {
+        for (const e of [SA[i], SB[i]]) {
+          const dp = Math.min(e.scale * e.scale * e.scale, 3.3);
+          ctx.beginPath(); ctx.arc(e.x, e.y, 0.6 + 1.35 * dp, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(GOLD_HI, 0.08 + 0.15 * dp); ctx.fill();
+        }
+      }
+      // sparse star flares with diffraction spikes on the nearest vertices
       for (let i = 0; i < SA.length; i += 3) {
         const hj = hash(i * 13);
-        if (hj < 0.4) continue;
-        const pt = (hj > 0.7 ? SA : SB)[i];
-        const dp = Math.min(Math.pow(pt.scale, 4), 4);
-        if (dp < 1.1) continue;                        // only glint when near
+        if (hj < 0.55) continue;
+        const e = (hj > 0.78 ? SA : SB)[i];
+        const dp = e.scale * e.scale * e.scale;
+        if (dp < 1.5) continue;
         const tw = 0.45 + 0.55 * Math.sin(now * 0.0009 + hj * 40);
-        const fr = (4 + 7 * dp * hj) * tw;
-        if (fr < 1.5) continue;
-        const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, fr);
-        g.addColorStop(0, rgba(GOLD_HI, 0.75 * tw));
-        g.addColorStop(0.22, rgba(GOLD_A, 0.22 * tw));
+        const fr = (6 + 11 * (dp - 1.5)) * tw;
+        if (fr < 3) continue;
+        const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, fr);
+        g.addColorStop(0, rgba(GOLD_HI, 0.85 * tw));
+        g.addColorStop(0.2, rgba(GOLD_A, 0.3 * tw));
         g.addColorStop(1, rgba(GOLD_A, 0));
         ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(pt.x, pt.y, fr, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(e.x, e.y, fr, 0, Math.PI * 2); ctx.fill();
+        const sp = fr * 2.3;
+        for (const [ex, ey] of [[sp, 0], [0, sp]]) {
+          const lg = ctx.createLinearGradient(e.x - ex, e.y - ey, e.x + ex, e.y + ey);
+          lg.addColorStop(0, rgba(GOLD_A, 0));
+          lg.addColorStop(0.5, rgba(GOLD_HI, 0.45 * tw));
+          lg.addColorStop(1, rgba(GOLD_A, 0));
+          ctx.strokeStyle = lg; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(e.x - ex, e.y - ey); ctx.lineTo(e.x + ex, e.y + ey); ctx.stroke();
+        }
       }
       // sparse drifting dust for atmosphere
       for (let i = 0; i < SA.length; i += 5) {
         const dj = hash(i * 5 + 3);
         const base = SA[i];
-        const dx = (dj - 0.5) * 190, dy = (hash(i * 11) - 0.5) * 120;
+        const dx = (dj - 0.5) * 230, dy = (hash(i * 11) - 0.5) * 150;
         const tw = 0.5 + 0.5 * Math.sin(now * 0.0011 + dj * 9);
         ctx.beginPath();
-        ctx.arc(base.x + dx, base.y + dy, 0.9 + dj, 0, Math.PI * 2);
-        ctx.fillStyle = rgba(GOLD_B, 0.10 * tw); ctx.fill();
+        ctx.arc(base.x + dx, base.y + dy, 0.8 + dj * 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(GOLD_HI, 0.14 * tw); ctx.fill();
       }
       ctx.globalCompositeOperation = 'source-over';
 
