@@ -74,8 +74,12 @@
       border-bottom:1px solid transparent;
     }
     nav.on { background:rgba(5,4,3,.82); backdrop-filter:blur(16px); border-bottom-color:var(--line); padding-block:11px; }
-    .logo { font-weight:800; font-size:21px; letter-spacing:-.4px; text-decoration:none; color:var(--text); }
-    .logo em { font-style:normal; color:var(--gold); }
+    /* The logo file carries ~28% transparent padding above and below the
+       mark, so it is set oversized and the surplus pulled back in — the mark
+       lands ~30px tall without inflating the bar. */
+    .logo { display:flex; align-items:center; text-decoration:none; }
+    .logo img { display:block; height:76px; width:auto; margin:-22px 0; }
+    @media (max-width:520px){ .logo img { height:64px; margin:-18px 0; } }
     .nav-links { display:flex; gap:26px; }
     .nav-links a { color:var(--muted); text-decoration:none; font-size:14.5px; transition:color .2s; }
     .nav-links a:hover { color:var(--text); }
@@ -262,6 +266,8 @@
     footer { position:relative; z-index:5; border-top:1px solid var(--line); padding:34px 0 46px;
       color:var(--muted); font-size:13.5px; }
     .foot-row { display:flex; justify-content:space-between; gap:18px; flex-wrap:wrap; align-items:center; }
+    .foot-brand { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+    .foot-brand img { display:block; height:66px; width:auto; margin:-19px 0; opacity:.9; }
     .foot-row a { color:var(--muted); text-decoration:none; }
     .foot-row a:hover { color:var(--gold-hi); }
 
@@ -270,7 +276,7 @@
     .rv.in { opacity:1; transform:none; }
     @media (prefers-reduced-motion:reduce){ .rv{opacity:1;transform:none;transition:none;} }
 
-    .flag { position:fixed; bottom:14px; left:14px; z-index:55; font-size:10.5px; letter-spacing:1px;
+    .flag { position:fixed; bottom:14px; right:14px; z-index:55; font-size:10.5px; letter-spacing:1px;
       text-transform:uppercase; color:var(--gold); border:1px dashed rgba(251,191,36,.4);
       border-radius:999px; padding:5px 12px; background:rgba(5,4,3,.8); }
   </style>
@@ -285,7 +291,7 @@
   <div class="progress" id="prog"></div>
 
   <nav id="nav">
-    <a href="#top" class="logo">DG<em>NA</em></a>
+    <a href="#top" class="logo"><img src="../Logo/Logo-2.png" alt="DGNA"></a>
     <div class="nav-links">
       <a href="#health">Khám sức khỏe</a>
       <a href="#solutions">Giải pháp</a>
@@ -698,7 +704,10 @@
 
   <footer>
     <div class="wrap foot-row">
-      <span>© 2026 DGNA — Tư vấn, đào tạo và triển khai quản trị dữ liệu</span>
+      <div class="foot-brand">
+        <img src="../Logo/Logo-2.png" alt="DGNA">
+        <span>© 2026 DGNA — Tư vấn, đào tạo và triển khai quản trị dữ liệu</span>
+      </div>
       <span>
         <a href="https://www.facebook.com/share/1D5nSQDkpx/?mibextid=wwXIfr">Facebook</a> ·
         <a href="https://www.linkedin.com/company/dgna-co-ltd">LinkedIn</a> ·
