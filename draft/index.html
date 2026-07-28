@@ -121,6 +121,7 @@
       color:var(--gold); margin-bottom:12px; }
     h2 { font-size:clamp(25px,3.6vw,42px); font-weight:800; letter-spacing:-1.1px; line-height:1.14; }
     h2 em { font-style:normal; color:var(--gold-hi); }
+    h2 .ill { color:var(--sick); }
     .sec-head p { margin-top:13px; color:var(--muted); font-size:16px; }
 
     /* ===== GRIDS & CARDS ===== */
@@ -213,7 +214,6 @@
       margin-top:13px; padding-top:11px; border-top:1px solid var(--line);
       font-size:12.5px; color:var(--gold-dim);
     }
-    .disclaimer { margin-top:18px; font-size:13px; color:var(--muted); font-style:italic; }
 
     /* course card */
     .course { display:flex; flex-direction:column; }
@@ -319,7 +319,7 @@
     <div class="wrap">
       <div class="sec-head rv">
         <span class="sec-label">Vì sao là dữ liệu, không phải công cụ</span>
-        <h2>Hệ thống thì thay, <em>bộ gen thì ở lại</em></h2>
+        <h2>Hệ thống được nâng cấp, <em>bộ gen được kế thừa</em></h2>
         <p>Doanh nghiệp đổi hệ thống trung bình mỗi 5–7 năm. Nhưng mô hình dữ liệu — danh mục,
           mã, định nghĩa, quan hệ — được kế thừa gần như nguyên vẹn sang thế hệ kế tiếp.</p>
       </div>
@@ -352,9 +352,8 @@
         <span class="tag">Bộ gen dữ liệu</span>
         <p>Kế thừa xuyên suốt cả bốn thế hệ — không được thay cùng hệ thống.</p>
       </div>
-      <p class="closing rv">Một định nghĩa sai đặt ra hôm nay sẽ còn biểu hiện trong những hệ thống
-        <b>chưa được mua</b>. Vì vậy khoản đầu tư bền nhất không nằm ở công cụ, mà ở chỗ mô hình dữ liệu
-        được định nghĩa và quản trị đúng ngay từ đầu.</p>
+      <p class="closing rv">Định nghĩa sai hôm nay sẽ làm hỏng cả những hệ thống <b>chưa mua ngày mai</b>.
+        Khoản đầu tư đáng tiền nhất không phải là phần mềm, mà là cấu trúc dữ liệu chuẩn chỉnh ngay từ đầu.</p>
     </div>
   </section>
 
@@ -363,7 +362,7 @@
     <div class="wrap">
       <div class="sec-head rv">
         <span class="sec-label">Bệnh án dữ liệu</span>
-        <h2>Một bản ghi sai <em>lây</em> như thế nào</h2>
+        <h2>Một bản ghi sai <span class="ill">lây nhiễm</span> đến DNA thế nào</h2>
         <p>Dữ liệu sai không nằm yên. Nó đi theo các đường đồng bộ mà tổ chức tự xây, và mỗi lớp
           phía sau lại tính toán dựa trên nó — nên đến lúc phát hiện, chỉ sửa ở nguồn là chưa đủ.
           Dưới đây là đường đi của một lỗi rất phổ biến: một khách hàng bị tạo hai lần.</p>
@@ -428,7 +427,6 @@
         </div>
       </div>
 
-      <p class="disclaimer rv">Đây là kịch bản minh họa cho một dạng sự cố phổ biến, không phải hồ sơ của khách hàng cụ thể.</p>
     </div>
   </section>
 
@@ -444,7 +442,7 @@
         </div>
         <div class="health-cols">
           <div>
-            <h4>Chúng tôi soi những gì</h4>
+            <h4>Chúng tôi kiểm tra những gì</h4>
             <ul class="list">
               <li>Danh mục dữ liệu chủ: trùng lặp, thiếu chuẩn hóa, thiếu chủ sở hữu</li>
               <li>Định nghĩa nghiệp vụ: mức độ thống nhất giữa các phòng ban</li>
