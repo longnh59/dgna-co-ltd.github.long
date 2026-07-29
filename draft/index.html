@@ -795,13 +795,25 @@
       io.observe(el);
     });
 
-    /* ===== FORM (same Apps Script endpoint as the live site) ===== */
+    /* ===== FORM =====
+       This page is published at /draft/ for review, so submissions are
+       deliberately not sent: anyone trying the form would otherwise drop test
+       rows into the real contact sheet. Set DRAFT_MODE to false when this
+       replaces the live page — nothing else needs to change. */
+    const DRAFT_MODE = true;
     const SHEET = 'https://script.google.com/macros/s/AKfycbyMyYS-6Uelrt6KbVFsQDSUBCcoDLl53EuueS6lnr5iSq6FUgrhJBhUcEl4BFc1i7id/exec';
     function submitForm(e) {
       e.preventDefault();
       const b = document.getElementById('sbtn'), html = b.innerHTML;
       const val = id => document.getElementById(id).value.trim();
-      b.disabled = true; b.textContent = '⏳ Đang gửi...';
+      const restore = ms => setTimeout(() => { b.innerHTML = html; b.disabled = false; }, ms);
+      b.disabled = true;
+      if (DRAFT_MODE) {
+        b.textContent = 'Bản xem trước — form chưa gửi';
+        restore(2800);
+        return false;
+      }
+      b.textContent = '⏳ Đang gửi...';
       fetch(SHEET, {
         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -810,11 +822,9 @@
           interest: val('interest'), message: val('message')
         })
       }).then(() => {
-        b.textContent = '✅ Đã gửi, cảm ơn bạn!'; e.target.reset();
-        setTimeout(() => { b.innerHTML = html; b.disabled = false; }, 4000);
+        b.textContent = '✅ Đã gửi, cảm ơn bạn!'; e.target.reset(); restore(4000);
       }).catch(() => {
-        b.textContent = '❌ Lỗi, thử lại';
-        setTimeout(() => { b.innerHTML = html; b.disabled = false; }, 3000);
+        b.textContent = '❌ Lỗi, thử lại'; restore(3000);
       });
       return false;
     }
